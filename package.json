@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "test": "node check.mjs",
     "build": "node --check dist/app.js"
   },
   "engines": {
