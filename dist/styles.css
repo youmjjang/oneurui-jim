@@ -934,8 +934,11 @@ input[type="datetime-local"]:focus {
   font-size: 13px;
 }
 
-/* Modal Dialog Base (완벽한 4면 라운딩 & 테두리 각짐 방지) */
+/* Modal Dialog Base (완벽한 4면 라운딩 & 화면 정중앙 완벽 배치) */
 dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto !important;
   border: 1.5px solid var(--border);
   border-radius: 24px !important;
   padding: 0 !important;
@@ -943,8 +946,31 @@ dialog {
   max-height: 88vh;
   overflow: hidden !important; /* 바깥 모서리 4개 모두 완벽한 라운딩 유지 */
   color: var(--text-main);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
   background: var(--surface);
+}
+
+dialog:not([open]) {
+  display: none !important;
+}
+
+dialog[open] {
+  animation: modalScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#specDialog {
+  width: min(580px, calc(100% - 32px));
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .dialog-scroll-wrap {
