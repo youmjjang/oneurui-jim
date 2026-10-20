@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import searchHandler from './api/search.js';
+import walkingHandler from './api/walking.js';
 import regionHandler from './api/region.js';
 import healthHandler from './api/health.js';
 
@@ -69,7 +70,9 @@ const server = http.createServer(async (req, res) => {
         wrapReqRes(req, res, parsedUrl, parsedBody);
 
         try {
-          if (pathname === '/api/search') {
+          if (pathname === '/api/walking') {
+            await walkingHandler(req, res);
+          } else if (pathname === '/api/search') {
             await searchHandler(req, res);
           } else if (pathname === '/api/region') {
             await regionHandler(req, res);

@@ -240,18 +240,49 @@ function formatMinutesText(min) {
 // 2. 모드 전환 (바로 맡기기 vs 일정에 맞추기)
 // -------------------------------------------------------------------
 let currentMode = 'route';
+let currentCoords = null;
+$('locateBtn').onclick = () => {
+  setMode('near');
+  const status = $('locationStatus');
+  if (!navigator.geolocation) {
+    status.textContent = '이 브라우저에서는 위치를 확인할 수 없어요. 아래에서 역이나 장소를 선택해주세요.';
+    return;
+  }
+  $('locateBtn').disabled = true;
+  status.textContent = '현재 위치를 확인하고 있어요…';
+  navigator.geolocation.getCurrentPosition(position => {
+    currentCoords = { x: position.coords.longitude, y: position.coords.latitude };
+    status.textContent = '현재 위치를 찾았어요. 선택한 짐 크기로 주변 보관함을 검색합니다.';
+    $('locateBtn').disabled = false;
+    $('plannerForm').requestSubmit();
+  }, error => {
+    currentCoords = null;
+    $('locateBtn').disabled = false;
+    status.textContent = error.code === 1
+      ? '위치 권한이 꺼져 있어요. 아래에서 역이나 장소를 선택해 검색해주세요.'
+      : '현재 위치를 확인하지 못했어요. 다시 시도하거나 아래에서 장소를 선택해주세요.';
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+};
+['startSelect', 'startDirectInput'].forEach(id => $(id).addEventListener('change', () => {
+  currentCoords = null;
+  $('locationStatus').textContent = '선택한 장소를 기준으로 검색해요. 내 위치 버튼을 누르면 현재 위치로 바뀝니다.';
+}));
 
 function setMode(value) {
   currentMode = value;
+
   const isRoute = value === 'route';
   $('routeFields').style.display = isRoute ? 'block' : 'none';
+  $('emptyGuide').querySelector('h3').textContent = isRoute ? '어디로 이동하시나요?' : '지금 가까운 곳부터 찾아보세요';
+  $('emptyGuide').querySelector('p').textContent = isRoute ? '출발지와 목적지를 선택하면 회수 동선까지 비교해요.' : '내 위치 버튼을 누르거나 역·장소와 짐 크기를 선택해 검색하세요.';
   $('priorityField').style.display = isRoute ? 'block' : 'none';
+  $('recentChips').parentElement.style.display = isRoute ? 'block' : 'none';
+  $('deposit').closest('.form-group').style.display = isRoute ? 'block' : 'none';
 
   $('nearTab').classList.toggle('active', !isRoute);
   $('nearTab').setAttribute('aria-selected', String(!isRoute));
   $('routeTab').classList.toggle('active', isRoute);
   $('routeTab').setAttribute('aria-selected', String(isRoute));
-
   $('searchText').textContent = isRoute ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   $('modeTitle').textContent = isRoute ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
   $('modeDescription').textContent = isRoute ? '방문과 짐 회수 동선을 함께 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
@@ -259,6 +290,137 @@ function setMode(value) {
 
 $('nearTab').onclick = () => setMode('near');
 $('routeTab').onclick = () => setMode('route');
+$('exampleBtn').onclick = () => {
+  currentCoords = null;
+  setMode('near');
+  $('startSelect').value = '서울역';
+  $('startDirectInput').value = '';
+  $('startDirectWrap').style.display = 'none';
+  syncAllCustomSelects();
+  $('locationStatus').textContent = '예시 미리보기 · 서울역 기준입니다. 실제 내 위치가 아닙니다.';
+  $('plannerForm').requestSubmit();
+};
+let resultLockers = [];
+let searchedOrigin = null;
+let searchedMode = 'near';
+let searchedVisit = null, searchedEnd = null;
+let selectedMapIndex = null;
+let map = null, pinLayer = null, walkingLine = null;
+let mapPins = [];
+let walkingRequest = null;
+function initLockerMap() {
+  if (!window.L) { $('mapStatus').textContent = '지도를 불러오지 못했어요. 아래 보관함 목록은 사용할 수 있어요.'; return; }
+  map = L.map('lockerMap', { scrollWheelZoom: false }).setView([37.5562,126.9723],13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+  pinLayer = L.layerGroup().addTo(map);
+}
+function clearWalking() {
+  if (walkingRequest) walkingRequest.abort();
+  walkingRequest = null;
+  if (walkingLine) { map.removeLayer(walkingLine); walkingLine = null; }
+  $('mapRouteStats').textContent = '';
+  $('walkingSteps').hidden = true;
+  $('drawWalkingRoute').disabled = false;
+  $('drawWalkingRoute').textContent = '이 지도에서 도보 길찾기 →';
+}
+function showAllPins() {
+  if (!map || !searchedOrigin) return;
+  const points = [[Number(searchedOrigin.y),Number(searchedOrigin.x)],...resultLockers.map(l=>[l.coordinates.lat,l.coordinates.lng])];
+  map.invalidateSize();
+  map.fitBounds(points, {padding:[35,35],maxZoom:16});
+}
+function renderLockerMap() {
+  if (!map) return;
+  clearWalking();
+  selectedMapIndex = null;
+  $('mapSelection').hidden = true;
+  $('itineraryPanel').hidden = true;
+  pinLayer.clearLayers(); mapPins = [];
+  L.circleMarker([Number(searchedOrigin.y),Number(searchedOrigin.x)],{radius:9,color:'#fff',weight:3,fillColor:'#3688e7',fillOpacity:1}).bindTooltip(esc(searchedOrigin.name),{permanent:true,direction:'top'}).addTo(pinLayer);
+  resultLockers.forEach((l,i)=>{
+    const marker = L.marker([l.coordinates.lat,l.coordinates.lng],{ icon:L.divIcon({className:'locker-pin-wrapper',html:'<span class="locker-pin">'+(i+1)+'</span>',iconSize:[32,38],iconAnchor:[16,35]}),title:l.name,keyboard:true });
+    marker.bindTooltip(esc(l.name));
+    marker.on('click',()=>selectMapLocker(i)); marker.addTo(pinLayer); mapPins.push(marker);
+  });
+  $('mapStatus').textContent = searchedOrigin.name+' 기준 · 보관함 '+resultLockers.length+'곳 · 숫자 핀을 눌러보세요.';
+  showAllPins();
+}
+function selectMapLocker(index) {
+  if (!map || !resultLockers[index]) return;
+  clearWalking(); selectedMapIndex = index;
+  const locker = resultLockers[index];
+  $('mapSelection').hidden = false;
+  $('mapLockerTag').textContent = '보관함 '+(index+1)+' · '+(locker.location.includes('개찰구 안')?'개찰구 안':'위치 안내 확인');
+  $('mapLockerName').textContent = locker.name;
+  $('mapLockerLocation').textContent = locker.location;
+  $('drawWalkingRoute').hidden = searchedMode === 'route';
+  $('itineraryPanel').hidden = searchedMode !== 'route';
+  $('mapRoutingPrivacy').textContent = searchedMode === 'route' ? '대중교통 경로: 카카오맵 API · 점선은 도보, 실선은 탑승 구간입니다. 역 내부 층·출구 안내를 함께 확인해주세요.' : '길찾기를 누르면 출발·도착 좌표가 OSM 경로 서비스로 전달됩니다. 역 내부에서는 층·출구 안내를 확인해주세요.';
+  if (searchedMode === 'route') {
+    $('itineraryMetrics').innerHTML = '<span>전체 이동 <b>'+locker.total+'분</b></span><span>보관 우회 <b>+'+locker.detourMinutes+'분</b></span><span>짐 들고 이동 <b>'+locker.carry+'분</b></span><span>도보 <b>'+locker.walkingMinutes+'분</b></span><span>환승 합계 <b>'+locker.transfers+'회</b></span>';
+    const titles=['출발 → 보관','보관 → 방문','방문 → 회수','회수 → 최종'];
+    $('itineraryLegs').innerHTML='<button type="button" data-leg="all" class="active">전체 동선</button>'+locker.legs.map((leg,i)=>'<button type="button" data-leg="'+i+'">'+(i+1)+'. '+titles[i]+' · '+leg.minutes+'분</button>').join('');
+    drawTransitLegs('all');
+  }
+  mapPins.forEach((pin,i)=>pin.setIcon(L.divIcon({className:'locker-pin-wrapper',html:'<span class="locker-pin '+(i===index?'active':'')+'">'+(i+1)+'</span>',iconSize:[32,38],iconAnchor:[16,35]})));
+  const from = encodeURIComponent(searchedOrigin.name)+','+Number(searchedOrigin.y)+','+Number(searchedOrigin.x);
+  const to = encodeURIComponent(locker.name)+','+locker.coordinates.lat+','+locker.coordinates.lng;
+  $('mapExternalLink').href='https://map.kakao.com/link/by/'+(searchedMode === 'route'?'traffic':'walk')+'/'+from+'/'+to;
+  if (searchedMode !== 'route') map.fitBounds([[Number(searchedOrigin.y),Number(searchedOrigin.x)],[locker.coordinates.lat,locker.coordinates.lng]],{padding:[45,45],maxZoom:17});
+  document.querySelector('.locker-map-shell').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function drawTransitLegs(which) {
+  if (selectedMapIndex===null) return;
+  if (walkingLine) map.removeLayer(walkingLine);
+  const locker=resultLockers[selectedMapIndex];
+  walkingLine=L.featureGroup().addTo(map);
+  const colors=['#2768b0','#278657','#b56822','#8152a3'];
+  const labels=['출발 → 보관함','보관함 → 방문지','방문지 → 보관함 회수','보관함 → 최종 목적지'];
+  const selected=locker.legs.map((leg,index)=>({leg,index})).filter(({index})=>which==='all'||index===Number(which));
+  $('itineraryDetail').innerHTML=selected.map(({leg,index})=>'<section class="transit-leg"><h4 style="color:'+colors[index]+'">'+(index+1)+'. '+labels[index]+' · '+leg.minutes+'분</h4>'+leg.segments.map(s=>'<div class="transit-step"><span class="transit-mode">'+(s.mode==='SUBWAY'?'지하철':s.mode==='BUS'?'버스':'도보')+'</span><div><strong>'+esc(s.guidance)+'</strong><small>'+esc(s.vehicles.join(' · '))+(s.stops.length?' · '+esc(s.stops[0])+' → '+esc(s.stops[s.stops.length-1]):'')+' · '+Math.ceil(s.seconds/60)+'분</small></div></div>').join('')+(leg.segments.length?'':'<p>같은 위치</p>')+'</section>').join('');
+  let missingGeometry=false;
+  selected.forEach(({leg,index})=>leg.segments.forEach(segment=>{
+    if(segment.points.length<2){if(segment.seconds>0) missingGeometry=true;return;}
+    L.polyline(segment.points.map(([lng,lat])=>[lat,lng]),{color:colors[index],weight:segment.mode==='WALKING'?4:6,dashArray:segment.mode==='WALKING'?'7 8':null,opacity:.8}).addTo(walkingLine);
+  }));
+  [[searchedVisit,'방문지'],[searchedEnd,'최종 목적지']].forEach(([p,label])=>{if(p)L.circleMarker([Number(p.y),Number(p.x)],{radius:6,color:'#c17839',fillColor:'#fff',fillOpacity:1,weight:3}).bindTooltip(esc(label+' · '+p.name),{permanent:false}).addTo(walkingLine);});
+  const bounds=walkingLine.getBounds();
+  if(bounds.isValid()) map.fitBounds(bounds,{padding:[40,40],maxZoom:17});
+  $('mapRouteStats').textContent=(which==='all'?'전체 일정 · '+locker.total+'분':labels[Number(which)]+' · '+locker.legs[Number(which)].minutes+'분')+(missingGeometry?' · 일부 구간의 지도 선 정보가 없어요':'');
+  $('itineraryLegs').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.leg===String(which)));
+}
+$('itineraryLegs').onclick=e=>{const button=e.target.closest('[data-leg]');if(button) drawTransitLegs(button.dataset.leg);};
+$('drawWalkingRoute').onclick = async () => {
+  if (selectedMapIndex === null || walkingRequest) return;
+  const locker = resultLockers[selectedMapIndex];
+  const controller = new AbortController(); walkingRequest = controller;
+  $('drawWalkingRoute').disabled = true;
+  $('drawWalkingRoute').textContent = '도보 경로 찾는 중…';
+  $('mapRouteStats').textContent = '실제 보행 경로를 불러오고 있어요.';
+  try {
+    const response = await fetch('/api/walking',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({start:{lat:Number(searchedOrigin.y),lng:Number(searchedOrigin.x)},end:locker.coordinates})});
+    const route = await response.json();
+    if (!response.ok) throw Error(route.error || '경로를 불러오지 못했어요.');
+    if (controller.signal.aborted) return;
+    walkingLine = L.geoJSON(route.geometry,{style:{color:'#235e42',weight:6,opacity:.9}}).addTo(map);
+    map.fitBounds(walkingLine.getBounds(),{padding:[35,35],maxZoom:17});
+    $('mapRouteStats').textContent = '도보 약 '+route.minutes+'분 · '+(route.distance<1000?Math.round(route.distance)+'m':(route.distance/1000).toFixed(1)+'km');
+    const turns = {'left':'왼쪽','right':'오른쪽','slight left':'왼쪽 방향','slight right':'오른쪽 방향','straight':'직진','sharp left':'왼쪽으로 크게','sharp right':'오른쪽으로 크게','uturn':'돌아가기'};
+    $('walkingStepList').innerHTML=route.steps.map(step=>'<li>'+esc(step.type==='arrive'?'보관함 주변 도착':step.type==='depart'?'출발':(turns[step.modifier]||'계속 이동'))+(step.name?' · '+esc(step.name):'')+(step.distance>0?' · '+Math.round(step.distance)+'m':'')+'</li>').join('');
+    $('walkingSteps').hidden = false;
+    $('drawWalkingRoute').textContent = '도보 경로 다시 찾기';
+  } catch(error) {
+    if (error.name==='AbortError') return;
+    $('mapRouteStats').textContent=error.message;
+    $('drawWalkingRoute').textContent='다시 길찾기';
+  } finally {
+    if (walkingRequest===controller) { walkingRequest=null; $('drawWalkingRoute').disabled=false; }
+  }
+};
+$('clearMapRoute').onclick=clearWalking;
+$('showAllPins').onclick=showAllPins;
+$('cards').addEventListener('click',e=>{const button=e.target.closest('[data-directions]');if(button) selectMapLocker(Number(button.dataset.directions));});
+initLockerMap();
 
 // 짐 크기 선택 버튼
 document.querySelectorAll('.size-btn').forEach(btn => {
@@ -646,7 +808,7 @@ $('plannerForm').onsubmit = async e => {
   const depositVal = $('deposit').value;
   const pickupVal = $('pickup').value;
 
-  if (new Date(pickupVal) <= new Date(depositVal)) {
+  if (currentMode === 'route' && new Date(pickupVal) <= new Date(depositVal)) {
     $('formError').textContent = '찾을 시각은 맡길 시각 이후로 선택해주세요.';
     return;
   }
@@ -664,7 +826,8 @@ $('plannerForm').onsubmit = async e => {
     size: sizeVal,
     priority: priorityVal,
     deposit: depositVal,
-    pickup: pickupVal
+    pickup: currentMode === 'route' ? pickupVal : null,
+    ...(currentCoords ? { coords: currentCoords } : {})
   };
 
   try {
@@ -683,13 +846,18 @@ $('plannerForm').onsubmit = async e => {
 
     $('emptyGuide').style.display = 'none';
     const displayResults = (d.results || []).slice(0, 7);
+    resultLockers = displayResults;
+    searchedOrigin = d.start;
+    searchedMode = q.mode; searchedVisit = d.visit; searchedEnd = d.end;
+    renderLockerMap();
+    $('journeyGuide').style.display = 'none';
     $('resultsCount').textContent = displayResults.length;
 
     $('summary').style.display = 'block';
     $('summary').innerHTML = `
-      <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} 일정</strong>
+      <strong>${currentMode === 'near' ? esc(d.start.name) + '에서 가까운 보관함' : esc(d.start.name) + ' 출발 → ' + esc(d.visit?.name || '목적지') + ' 일정'}</strong>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-        ${esc(d.note || '이동 편의성과 보관 가능성 상위 7개 보관함 추천 결과입니다.')}
+        ${esc(d.note || '보관함 추천 결과입니다.')} ${d.excludedCount ? esc('실제 경로 확인 불가 '+d.excludedCount+'곳 제외') : ''}
       </div>
     `;
 
@@ -711,6 +879,7 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               </div>
 
+              ${l.routeVerified ? '<div class="verified-route">지하철·도보 실제 경로 확인 · 보관 없는 이동 '+l.baselineTotal+'분 대비 우회 +'+l.detourMinutes+'분 · 환승 합계 '+l.transfers+'회</div>' : ''}
               ${l.curfewWarning ? `
                 <div class="curfew-box">
                   <span>🚨</span>
@@ -720,19 +889,19 @@ $('plannerForm').onsubmit = async e => {
 
               <div class="metrics">
                 <div class="metric">
-                  <small>전체 이동시간</small>
-                  <strong>${formatMinutes(l.total)}</strong>
-                  <small class="note">출발→보관→방문→회수</small>
+                  <small>${currentMode === 'near' ? '예상 도보시간' : '전체 이동시간'}</small>
+                  <strong>${formatMinutes(currentMode === 'near' ? l.walkMinutes : l.total)}</strong>
+                  <small class="note">${currentMode === 'near' ? '직선거리 기반 추정 · 실제 경로와 다를 수 있어요' : '출발→보관→방문→회수→최종'}</small>
                 </div>
                 <div class="metric">
-                  <small>짐 들고 이동</small>
-                  <strong style="color:var(--primary);">${formatMinutes(l.carry)}</strong>
-                  <small class="note">실제 짐 부담 시간</small>
+                  <small>${currentMode === 'near' ? '출발 위치와 거리' : '짐 들고 이동'}</small>
+                  <strong style="color:var(--primary);">${currentMode === 'near' ? esc(l.km < 1 ? Math.round(l.km * 1000) + 'm' : l.km.toFixed(1) + 'km') : formatMinutes(l.carry)}</strong>
+                  <small class="note">${currentMode === 'near' ? '직선거리 · 가까운 순' : '실제 짐 부담 시간'}</small>
                 </div>
                 <div class="metric">
-                  <small>설치 칸수</small>
+                  <small>${l.asOf === '공공데이터 공식 설치수량 기준' ? '설치 칸수' : '이용 가능 칸수'}</small>
                   <strong>${esc(l.available === null ? '-' : l.available + '칸')}</strong>
-                  <small class="note">정직한 총 수량</small>
+                  <small class="note">${l.asOf === '공공데이터 공식 설치수량 기준' ? '실시간 빈칸 정보는 없어요' : '현장 상황과 다를 수 있어요'}</small>
                 </div>
               </div>
 
@@ -759,15 +928,16 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               </details>
 
-              <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+              <div class="result-actions"><button type="button" class="primary-btn directions-button" data-directions="${index}">${l.routeVerified ? '전체 지하철·회수 동선 보기' : '지도에서 길찾기'}</button>
                 <button type="button" class="ticket-action-btn" onclick="openVaultModal('${esc(l.name)}', '${esc(l.location)}')">
-                  🔒 보관함 번호·비밀번호 안전 보관
+                  🔒 번호·비밀번호 저장
                 </button>
               </div>
             </article>
           `;
         }).join('')
       : '<div class="empty"><h3>조회된 보관함이 없습니다.</h3></div>';
+    document.querySelector('.results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (err) {
     $('formError').textContent = err.message;
@@ -783,3 +953,5 @@ $('plannerForm').onsubmit = async e => {
 // -------------------------------------------------------------------
 initCustomDropdowns();
 initDirectInputToggles();
+
+setMode('near');

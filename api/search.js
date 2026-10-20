@@ -1,3 +1,4 @@
+import { transitRoute } from '../lib/transit.js';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -51,7 +52,9 @@ async function kakao(pathUrl, params) {
 
 async function place(q) {
   try {
-    const d = await kakao('v2/local/search/keyword.json', { query: q, size: '1' });
+    const stationAliases = { '성수':'성수역', '강남':'강남역', '홍대입구':'홍대입구역', '명동':'명동역', '여의도':'여의도역', '혜화':'혜화역', '잠실':'잠실역', '고속터미널':'고속터미널역', '용산':'용산역', '판교':'판교역', '수원':'수원역', '건대':'건대입구역', '서면':'서면역', '해운대':'해운대역', '광안':'광안역', '남포':'남포역', '사상':'사상역', '수서':'수서역', '신촌':'신촌역', '사당':'사당역', '이태원':'이태원역', '동대문역사문화공원':'동대문역사문화공원역' };
+    const query = stationAliases[q] || q;
+    const d = await kakao('v2/local/search/keyword.json', { query, size: '1', ...(stationAliases[q] || q.endsWith('역') ? {category_group_code:'SW8'} : {}) });
     const p = d.documents?.[0];
     if (p) return { name: p.place_name, x: p.x, y: p.y, address: p.road_address_name || p.address_name };
   } catch {}
@@ -90,7 +93,7 @@ async function place(q) {
   for (const [k, v] of Object.entries(PRESET_PLACES)) {
     if (q.includes(k)) return v;
   }
-  return { name: q, x: '126.9723', y: '37.5562', address: q + ' (위치 좌표 연산)' };
+  throw Error('장소를 확인하지 못했어요. 정확한 역명이나 장소명을 입력해주세요.');
 }
 
 async function data(kind, code) {
@@ -201,6 +204,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '장소와 이동 정보를 확인해주세요.' });
     }
 
+    if (q.coords && (!Number.isFinite(q.coords.x) || !Number.isFinite(q.coords.y) || Math.abs(q.coords.x) > 180 || Math.abs(q.coords.y) > 90)) {
+      return res.status(400).json({ error: '위치 정보를 확인해주세요.' });
+    }
+    if (q.mode === 'route' && !process.env.KAKAO_REST_API_KEY?.trim()) return res.status(503).json({ error: '실제 지하철·도보 동선 비교를 위해 카카오 API 연결이 필요해요. .env의 KAKAO_REST_API_KEY를 설정해주세요.', code: 'TRANSIT_NOT_CONFIGURED' });
     const [start, visit, end] = await Promise.all([
       q.coords ? Promise.resolve({ name: '현재 위치', x: String(q.coords.x), y: String(q.coords.y) }) : place(q.start),
       q.mode === 'route' ? place(q.visit) : null,
@@ -309,14 +316,16 @@ export default async function handler(req, res) {
     // 심야 폐쇄 감금 위험 분석
     const curfewWarning = checkCurfewWarning(q.pickup);
 
+    const baselineLegs = q.mode === 'route' ? await Promise.all([transitRoute(start,visit),transitRoute(visit,end)]) : [];
+    const baselineTotal = baselineLegs.reduce((n,l)=>n+l.minutes,0);
     // 경로 시간 연산
-    const results = await Promise.all(candidates.map(async l => {
+    const candidateRoutes = await Promise.allSettled(candidates.map(async l => {
       const p = { name: l.name, x: l.x, y: l.y };
       const legs = await Promise.all(
         (q.mode === 'route'
           ? [[start, p], [p, visit], [visit, p], [p, end]]
           : [[start, p]]
-        ).map(([a, b]) => route(a, b))
+        ).map(([a, b]) => q.mode === 'route' ? transitRoute(a,b) : route(a, b))
       );
 
       const total = legs.every(Boolean) ? legs.reduce((s, r) => s + r.minutes, 0) : null;
@@ -327,7 +336,9 @@ export default async function handler(req, res) {
         name: l.name,
         address: l.address,
         location: l.location,
+        coordinates: { lat: Number(l.y), lng: Number(l.x) },
         km: Number(l.km.toFixed(2)),
+        walkMinutes: Math.max(1, Math.ceil(l.km / 4 * 60)),
         available: l.available,
         asOf: l.asOf,
         details: l.details,
@@ -336,6 +347,11 @@ export default async function handler(req, res) {
         legs,
         total,
         carry,
+        routeVerified: q.mode === 'route' && legs.every(l=>l.verified),
+        baselineTotal: q.mode === 'route' ? baselineTotal : null,
+        detourMinutes: q.mode === 'route' ? Math.max(0,total-baselineTotal) : null,
+        walkingMinutes: q.mode === 'route' ? legs.reduce((n,l)=>n+l.walkingMinutes,0) : null,
+        transfers: q.mode === 'route' ? legs.reduce((n,l)=>n+l.transfers,0) : null,
         planB: {
           name: `${l.name} 플랜 B 대안 보관함`,
           tip: '현장 만차 시 같은 역사 내 타 출구 또는 인접 보관소 즉시 이동 가능'
@@ -343,17 +359,17 @@ export default async function handler(req, res) {
       };
     }));
 
+    const results = candidateRoutes.filter(r=>r.status==='fulfilled').map(r=>r.value);
+    const excludedCount = candidateRoutes.length-results.length;
+    if (q.mode === 'route' && !results.length) return res.status(502).json({error:'실제 전체 동선을 확인할 수 있는 보관함이 없어요. API 연결이나 장소를 확인해주세요.'});
+
     // 편의성(소요시간 최소) 및 가능성(칸수 넉넉함) 종합 가중치 정렬
     results.sort((a, b) => {
+      if (q.mode === 'near') return a.km - b.km;
       const timeA = q.priority === 'carry' ? (a.carry ?? 9999) : (a.total ?? 9999);
       const timeB = q.priority === 'carry' ? (b.carry ?? 9999) : (b.total ?? 9999);
 
-      // 소요 시간 차이가 5분 이내일 경우, 설치 칸수(보관 가능성)가 더 많은 곳을 우선 추천
-      if (Math.abs(timeA - timeB) <= 5) {
-        const slotsA = a.available || 0;
-        const slotsB = b.available || 0;
-        if (slotsA !== slotsB) return slotsB - slotsA;
-      }
+      if (timeA === timeB) return (b.available || 0) - (a.available || 0);
 
       return timeA - timeB;
     });
@@ -366,11 +382,13 @@ export default async function handler(req, res) {
       visit,
       end,
       results: top7Results,
+      baselineLegs, baselineTotal, excludedCount,
+      routeSource: q.mode === 'route' ? 'kakao-public-transit' : 'distance-estimate',
       scope: isOfflineFallback
         ? '전국 공공데이터(서울·부산·KTX) 기반 최적 동선 및 규격별 정직한 설치 수량'
         : '실시간 공영 보관함 API 및 카카오 대중교통 경로 연계',
       source: '서울교통공사 · 부산교통공사 · 국가철도공단 · 행정안전부 공공데이터',
-      note: '이동 편의성(소요 시간 최소)과 보관 가능성(설치 수량)을 종합 분석한 상위 7개 추천 결과입니다.'
+      note: q.mode === 'near' ? '입력한 위치에서 직선거리 순으로 추천해요. 도보시간은 추정치이며, 설치 칸수는 빈칸 수가 아닙니다.' : '카카오 지하철·대중교통 경로 기준으로 보관·방문·회수·최종 이동을 합산했어요. 입력 시각의 시간표·막차와 역사 내부 이동시간은 별도 확인이 필요합니다.'
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#214e3b">
   <title>오늘의 짐 — 이동 동선 기반 물품보관함 추천 & 안전 보관</title>
+  <link rel="stylesheet" href="vendor/leaflet.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,11 +32,15 @@
     </div>
   </section>
 
+  <section class="nearby-entry" aria-labelledby="nearbyTitle">
+    <div><span class="nearby-eyebrow">무거운 짐, 일단 내려놓으세요</span><h2 id="nearbyTitle">지금 내 주변, 가장 가까운 보관함</h2><p>현재 위치와 짐 크기로 빠르게 찾아요. 찾으러 올 동선은 일정에 맞춰 비교할 수 있어요.</p></div>
+    <div class="nearby-actions"><button type="button" id="locateBtn" class="primary-btn">◎ 내 위치로 가까운 보관함 찾기</button><p id="locationStatus" role="status" aria-live="polite">버튼을 누르면 위치 권한을 요청해요.</p></div>
+  </section>
   <div class="workspace">
     <!-- 왼쪽: 플래너 입력창 -->
     <aside class="planner">
       <div class="mode-switch" role="tablist" aria-label="보관함 검색 방식">
-        <button id="nearTab" role="tab" aria-selected="false">바로 맡기기</button>
+        <button id="nearTab" role="tab" aria-selected="false">가까운 곳 찾기</button>
         <button id="routeTab" role="tab" aria-selected="true" class="active">일정에 맞추기</button>
       </div>
 
@@ -130,10 +135,10 @@
         <div id="routeFields">
           <div class="route-connector"></div>
 
-          <!-- 3. 목적지 (짐 맡길 곳) 드롭다운 -->
+          <!-- 3. 방문지 (짐 없이 갈 곳) 드롭다운 -->
           <div class="form-group">
             <div class="field-header">
-              <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
+              <label class="field-label" for="visitSelect">방문지 (짐 없이 갈 곳)</label>
               <button type="button" class="direct-input-btn" data-target="visitDirectWrap">직접 입력</button>
             </div>
             <div class="custom-select-wrap">
@@ -278,6 +283,22 @@
         </div>
       </div>
 
+      <section class="locker-map-shell" aria-label="보관함 지도">
+        <div class="locker-map-heading"><div><span class="nearby-eyebrow">오늘의 짐 · 주변 지도</span><h3>짐 둘 곳, 지도에서 찾아요</h3></div><button type="button" id="showAllPins">전체 핀 보기</button></div>
+        <div id="lockerMap" aria-label="출발 위치와 보관함 지도"></div>
+        <p id="mapStatus" role="status" aria-live="polite">검색하면 출발 위치와 보관함이 지도에 표시돼요.</p>
+        <div id="mapSelection" hidden>
+          <div class="map-selection-title"><div><span id="mapLockerTag">보관함</span><h3 id="mapLockerName"></h3></div><button type="button" id="clearMapRoute">경로 지우기</button></div>
+          <p id="mapLockerLocation"></p>
+          <div id="mapRouteStats" role="status" aria-live="polite"></div>
+          <section id="itineraryPanel" hidden><div id="itineraryMetrics"></div><p class="itinerary-note">출발 → 보관 → 방문 → 회수 → 최종 목적지</p><div id="itineraryLegs"></div><div id="itineraryDetail"></div><small>실제 경로 API 기준 · 입력한 미래 시각의 시간표나 막차를 보장하지 않아요. 역사 내부 이동은 추가로 고려해주세요.</small></section>
+          <button type="button" id="drawWalkingRoute" class="primary-btn">이 지도에서 도보 길찾기 →</button>
+          <small id="mapRoutingPrivacy">길찾기를 누르면 출발·도착 좌표가 OSM 경로 서비스로 전달됩니다. 역 내부에서는 층·출구 안내를 확인해주세요.</small>
+          <details id="walkingSteps" hidden><summary>도보 이동 안내</summary><ol id="walkingStepList"></ol></details>
+          <a id="mapExternalLink" target="_blank" rel="noopener noreferrer">카카오맵에서 이어보기 ↗</a>
+        </div>
+        <div class="map-credit">지도 © OpenStreetMap · 도보 경로 OSRM / FOSSGIS · <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer">지도 수정 제안</a></div>
+      </section>
       <div id="emptyGuide" class="empty">
         <h3>어디로 이동하시나요?</h3>
         <p>왼쪽에서 출발 위치와 목적지를 선택하시면 전체 이동 손실을 계산해 드립니다.</p>
@@ -286,6 +307,8 @@
       <div id="summary" class="summary" style="display:none;background:var(--surface-sub);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:12px;color:var(--text-sub);"></div>
 
       <div id="cards" class="cards" aria-live="polite"></div>
+      <div id="journeyGuide" class="journey-guide"><span>1 <b>위치 선택</b></span><i>→</i><span>2 <b>보관함 비교</b></span><i>→</i><span>3 <b>길찾기</b></span></div>
+      <div class="preview-example"><strong>누르면 어떤 화면이 나오나요?</strong><p>서울역 주변을 예로 들어 검색 결과를 미리 확인할 수 있어요.</p><button type="button" id="exampleBtn">서울역 주변 결과 미리보기 →</button><small>예시 위치를 사용하며, 내 위치를 수집하지 않아요.</small></div>
     </section>
   </div>
 
@@ -340,6 +363,7 @@
   </div>
 </dialog>
 
+<script src="vendor/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
