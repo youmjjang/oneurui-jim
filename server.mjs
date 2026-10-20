@@ -1,10 +1,31 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import searchHandler from './api/search.js';
 import regionHandler from './api/region.js';
 import healthHandler from './api/health.js';
+
+// .env 자동 로드 (외부 패키지 없이 순수 Node.js로 안전 주입)
+if (existsSync('.env')) {
+  try {
+    const envContent = readFileSync('.env', 'utf-8');
+    for (const line of envContent.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const idx = trimmed.indexOf('=');
+        const k = trimmed.slice(0, idx).trim();
+        const v = trimmed.slice(idx + 1).trim();
+        if (k && !process.env[k]) {
+          process.env[k] = v;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('.env 로드 중 경고:', e.message);
+  }
+}
 
 const root = fileURLToPath(new URL('./dist/', import.meta.url));
 const mime = {

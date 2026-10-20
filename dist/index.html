@@ -23,7 +23,6 @@
 <main>
   <section class="intro">
     <div>
-      <div class="eyebrow">LESS BAGGAGE, MORE POSSIBILITIES</div>
       <h1>짐은 잠깐,<br class="mobile-break"> 하루는 가볍게.</h1>
       <p>
         가까운 곳에 무작정 넣었다가 되찾으러 역주행하지 마세요.<br class="mobile-break">
@@ -66,7 +65,10 @@
       <form id="plannerForm">
         <!-- 1. 보관함을 찾을 지역 (드롭다운) -->
         <div class="form-group">
-          <label class="field-label" for="regionSelect">보관함을 찾을 지역</label>
+          <div class="field-header">
+            <label class="field-label" for="regionSelect">보관함을 찾을 지역</label>
+            <button type="button" class="direct-input-btn" data-target="regionDirectWrap">직접 입력</button>
+          </div>
           <div class="custom-select-wrap">
             <select id="regionSelect" class="custom-select">
               <option value="ALL">전국 전체</option>
@@ -76,11 +78,17 @@
             </select>
             <span class="custom-select-arrow">▼</span>
           </div>
+          <div id="regionDirectWrap" class="direct-input-wrap" style="display:none;">
+            <input type="text" id="regionDirectInput" class="direct-text-input" placeholder="지역 또는 도시명 직접 입력 (예: 대전, 광주, 강릉 등)">
+          </div>
         </div>
 
         <!-- 2. 출발 위치 (드롭다운) -->
         <div class="form-group">
-          <label class="field-label" for="startSelect">출발 위치</label>
+          <div class="field-header">
+            <label class="field-label" for="startSelect">출발 위치</label>
+            <button type="button" class="direct-input-btn" data-target="startDirectWrap">직접 입력</button>
+          </div>
           <div class="custom-select-wrap">
             <select id="startSelect" class="custom-select" required>
               <optgroup label="서울·수도권 주요 역">
@@ -114,6 +122,9 @@
             </select>
             <span class="custom-select-arrow">▼</span>
           </div>
+          <div id="startDirectWrap" class="direct-input-wrap" style="display:none;">
+            <input type="text" id="startDirectInput" class="direct-text-input" placeholder="출발역 또는 장소명 직접 입력 (예: 판교역, 수원역, 건대입구)">
+          </div>
         </div>
 
         <div id="routeFields">
@@ -121,7 +132,10 @@
 
           <!-- 3. 목적지 (짐 맡길 곳) 드롭다운 -->
           <div class="form-group">
-            <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
+            <div class="field-header">
+              <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
+              <button type="button" class="direct-input-btn" data-target="visitDirectWrap">직접 입력</button>
+            </div>
             <div class="custom-select-wrap">
               <select id="visitSelect" class="custom-select" required>
                 <optgroup label="서울·수도권 주요 일정지">
@@ -146,13 +160,19 @@
               </select>
               <span class="custom-select-arrow">▼</span>
             </div>
+            <div id="visitDirectWrap" class="direct-input-wrap" style="display:none;">
+              <input type="text" id="visitDirectInput" class="direct-text-input" placeholder="목적지 또는 방문 장소 직접 입력 (예: 코엑스, 광화문, 벡스코)">
+            </div>
           </div>
 
           <div class="route-connector"></div>
 
           <!-- 4. 최종 목적지 (짐을 찾고 마지막으로 갈 곳) 드롭다운 -->
           <div class="form-group">
-            <label class="field-label" for="endSelect">최종 목적지 (짐을 찾고 마지막으로 갈 곳)</label>
+            <div class="field-header">
+              <label class="field-label" for="endSelect">최종 목적지 (짐을 찾고 마지막으로 갈 곳)</label>
+              <button type="button" class="direct-input-btn" data-target="endDirectWrap">직접 입력</button>
+            </div>
             <div class="custom-select-wrap">
               <select id="endSelect" class="custom-select" required>
                 <option value="SAME_AS_START" selected>출발지와 동일 (출발역으로 복귀/귀가)</option>
@@ -171,6 +191,9 @@
                 </optgroup>
               </select>
               <span class="custom-select-arrow">▼</span>
+            </div>
+            <div id="endDirectWrap" class="direct-input-wrap" style="display:none;">
+              <input type="text" id="endDirectInput" class="direct-text-input" placeholder="귀가역 또는 최종 목적지 직접 입력 (예: 인천공항, 김포공항, 수서역)">
             </div>
           </div>
         </div>
@@ -207,23 +230,31 @@
             <button type="button" id="nowTimeBtn" class="now-btn">현재 시각</button>
           </div>
           <div class="date-fields">
-            <div>
+            <div class="date-input-wrap">
+              <span class="date-sub-label">맡길 시각</span>
               <input id="deposit" type="datetime-local" title="맡길 시각" required>
             </div>
-            <div>
+            <div class="date-input-wrap">
+              <span class="date-sub-label">찾을 시각</span>
               <input id="pickup" type="datetime-local" title="찾을 시각" required>
             </div>
           </div>
         </div>
 
         <div id="priorityField" class="form-group" style="margin-top:14px;">
-          <label class="field-label" for="priority">추천 정렬 기준</label>
+          <div class="field-header">
+            <label class="field-label" for="priority">추천 정렬 기준</label>
+            <button type="button" class="direct-input-btn" data-target="priorityDirectWrap">직접 입력</button>
+          </div>
           <div class="custom-select-wrap">
             <select id="priority" class="custom-select">
               <option value="total" selected>전체 이동시간(우회 손실) 최소</option>
               <option value="carry">짐 들고 이동하는 시간 최소</option>
             </select>
             <span class="custom-select-arrow">▼</span>
+          </div>
+          <div id="priorityDirectWrap" class="direct-input-wrap" style="display:none;">
+            <input type="text" id="priorityDirectInput" class="direct-text-input" placeholder="정렬 키워드 직접 입력 (예: 짐 최소, 이동시간 최소 등)">
           </div>
         </div>
 
@@ -260,7 +291,6 @@
 
   <footer>
     <span style="font-weight:700;color:var(--primary);">오늘의 짐</span>
-    <p>팀원: 김유미, 조원웅 · 공공데이터와 이동 동선 알고리즘 기반 물품보관함 추천</p>
   </footer>
 </main>
 

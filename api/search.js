@@ -56,7 +56,7 @@ async function place(q) {
     if (p) return { name: p.place_name, x: p.x, y: p.y, address: p.road_address_name || p.address_name };
   } catch {}
   
-  // 키가 없거나 실패 시 장소 휴리스틱 좌표 Fallback (서울/부산/전국 주요역)
+  // 키가 없거나 실패 시 장소 휴리스틱 좌표 Fallback (서울/부산/전국 주요역 및 직접 입력 거점)
   const PRESET_PLACES = {
     '서울역': { name: '서울역', x: '126.9723', y: '37.5562', address: '서울특별시 중구 한강대로 405' },
     '홍대입구': { name: '홍대입구역', x: '126.9244', y: '37.5575', address: '서울특별시 마포구 양화로 160' },
@@ -65,12 +65,26 @@ async function place(q) {
     '명동': { name: '명동역', x: '126.9863', y: '37.5609', address: '서울특별시 중구 퇴계로 126' },
     '여의도': { name: '여의도역', x: '126.9242', y: '37.5216', address: '서울특별시 영등포구 여의나루로 40' },
     '혜화': { name: '혜화역', x: '127.0018', y: '37.5823', address: '서울특별시 종로구 대학로 120' },
+    '잠실': { name: '잠실역', x: '127.1002', y: '37.5133', address: '서울특별시 송파구 올림픽로 265' },
+    '고속터미널': { name: '고속터미널역', x: '127.0050', y: '37.5049', address: '서울특별시 서초구 신반포로 194' },
+    '용산': { name: '용산역', x: '126.9648', y: '37.5299', address: '서울특별시 용산구 한강대로23길 55' },
+    '판교': { name: '판교역', x: '127.1111', y: '37.3947', address: '경기도 성남시 분당구 판교역로 160' },
+    '수원': { name: '수원역', x: '127.0001', y: '37.2657', address: '경기도 수원시 팔달구 덕영대로 924' },
+    '건대': { name: '건대입구역', x: '127.0694', y: '37.5404', address: '서울특별시 광진구 아차산로 243' },
+    '신도림': { name: '신도림역', x: '126.8913', y: '37.5088', address: '서울특별시 구로구 경인로 688' },
+    '수서': { name: '수서역', x: '127.1018', y: '37.4875', address: '서울특별시 강남구 밤고개로 99' },
+    '인천공항': { name: '인천국제공항', x: '126.4505', y: '37.4602', address: '인천광역시 중구 공항로 272' },
+    '김포공항': { name: '김포공항역', x: '126.8013', y: '37.5623', address: '서울특별시 강서구 하늘길 지하 77' },
     '부산역': { name: '부산역', x: '129.0422', y: '35.1152', address: '부산광역시 동구 중앙대로 206' },
     '서면': { name: '서면역', x: '129.0593', y: '35.1578', address: '부산광역시 부산진구 중앙대로 730' },
     '해운대': { name: '해운대역', x: '129.1585', y: '35.1631', address: '부산광역시 해운대구 구남로 39' },
     '광안': { name: '광안역', x: '129.1132', y: '35.1579', address: '부산광역시 수영구 수영로 576' },
+    '남포': { name: '남포역', x: '129.0326', y: '35.0979', address: '부산광역시 중구 구덕로 12' },
+    '사상': { name: '사상역', x: '128.9818', y: '35.1624', address: '부산광역시 사상구 사상로 201' },
     '대전역': { name: '대전역', x: '127.4342', y: '36.3323', address: '대전광역시 동구 중앙로 218' },
-    '동대구역': { name: '동대구역', x: '128.6285', y: '35.8799', address: '대구광역시 동구 동대구로 550' }
+    '동대구역': { name: '동대구역', x: '128.6285', y: '35.8799', address: '대구광역시 동구 동대구로 550' },
+    '광주송정': { name: '광주송정역', x: '126.7912', y: '35.1378', address: '광주광역시 광산구 상무대로 201' },
+    '울산역': { name: '울산역', x: '129.1387', y: '35.5518', address: '울산광역시 울주군 삼남읍 울산역로 177' }
   };
 
   for (const [k, v] of Object.entries(PRESET_PLACES)) {
@@ -129,11 +143,23 @@ async function route(a, b) {
     }
   } catch {}
 
-  // Fallback: 대중교통 이동 속도(약 시속 25km + 기본 대기/환승 4분) 기반 현실적 모델
-  const approxMinutes = Math.max(3, Math.round((distKm / 25) * 60) + 4);
+  // Fallback: 현실적인 전국 대중교통(지하철 & KTX 고속철도) 이동 시간 모델
+  let approxMinutes = 0;
+  if (distKm <= 10) {
+    // 10km 이내 시내 지하철 (약 10~25분)
+    approxMinutes = Math.max(3, Math.round((distKm / 30) * 60) + 4);
+  } else if (distKm <= 40) {
+    // 수도권 광역 시내 이동 (약 25~45분)
+    approxMinutes = Math.min(50, Math.round((distKm / 35) * 60) + 8);
+  } else {
+    // 40km 초과: 전국 KTX/SRT 고속철도 구간 (시속 약 180km 기준)
+    // 서울-대전(140km: 약 55분), 서울-대구(240km: 약 100분), 서울-부산(330km: 약 135분)
+    approxMinutes = Math.min(150, Math.round((distKm / 170) * 60) + 15);
+  }
+
   return {
     minutes: approxMinutes,
-    steps: [`${a.name} → ${b.name} 대중교통 이동 (약 ${approxMinutes}분)`]
+    steps: [`${a.name} → ${b.name} 이동 (약 ${approxMinutes}분)`]
   };
 }
 
@@ -208,7 +234,7 @@ export default async function handler(req, res) {
           .filter(l => +l.lat && +l.lot)
           .map(l => ({ ...l, km: distance(start, { x: l.lot, y: l.lat }) }))
           .sort((a, b) => a.km - b.km)
-          .slice(0, 5)
+          .slice(0, 15)
           .map(l => {
             const ds = detail.filter(d => d.stlckId === l.stlckId);
             const rt = realtime.filter(r => r.stlckId === l.stlckId).sort((a, b) => String(b.totDt).localeCompare(String(a.totDt)))[0];
@@ -242,33 +268,42 @@ export default async function handler(req, res) {
       const sizeKey = { S: 'small', M: 'medium', L: 'large' }[q.size];
 
       candidates = allData
-        .map(l => ({
-          id: l.id,
-          name: `${l.station} (${l.line})`,
-          address: `${l.region} ${l.station}역사`,
-          location: `${l.location} [${l.gate}]`,
-          km: distance(start, { x: l.lng, y: l.lat }),
-          x: String(l.lng),
-          y: String(l.lat),
-          available: l[sizeKey] || 0,
-          totalSlots: l.total || 0,
-          asOf: '공공데이터 공식 설치수량 기준',
-          details: [{
-            stlckKndNm: `${q.size === 'S' ? '소형' : q.size === 'M' ? '중형' : '대형'} (설치: ${l[sizeKey]}칸)`,
-            utztnCrgExpln: `기본 4시간 ${l.baseFee.toLocaleString()}원`,
-            addCrgExpln: `초과 1시간당 ${l.addFee.toLocaleString()}원`,
-            stlckWdthLenExpln: '450mm',
-            stlckHgtExpln: q.size === 'S' ? '300mm' : q.size === 'M' ? '600mm' : '900mm',
-            stlckDpthExpln: '500mm'
-          }],
-          hours: {
-            weekday: ['0500', '2400'],
-            saturday: ['0530', '2400'],
-            holiday: ['0530', '2400']
-          }
-        }))
-        .sort((a, b) => a.km - b.km)
-        .slice(0, 4);
+        .map(l => {
+          const pt = { x: l.lng, y: l.lat };
+          const distStart = distance(start, pt);
+          const distVisit = visit ? distance(visit, pt) : distStart;
+          const distEnd = end ? distance(end, pt) : distStart;
+          const minRouteDist = Math.min(distStart, distVisit, distEnd);
+
+          return {
+            id: l.id,
+            name: `${l.station} (${l.line})`,
+            address: `${l.region} ${l.station}역사`,
+            location: `${l.location} [${l.gate}]`,
+            km: distStart,
+            minRouteDist,
+            x: String(l.lng),
+            y: String(l.lat),
+            available: l[sizeKey] || 0,
+            totalSlots: l.total || 0,
+            asOf: '공공데이터 공식 설치수량 기준',
+            details: [{
+              stlckKndNm: `${q.size === 'S' ? '소형' : q.size === 'M' ? '중형' : '대형'} (설치: ${l[sizeKey]}칸)`,
+              utztnCrgExpln: `기본 4시간 ${l.baseFee.toLocaleString()}원`,
+              addCrgExpln: `초과 1시간당 ${l.addFee.toLocaleString()}원`,
+              stlckWdthLenExpln: '450mm',
+              stlckHgtExpln: q.size === 'S' ? '300mm' : q.size === 'M' ? '600mm' : '900mm',
+              stlckDpthExpln: '500mm'
+            }],
+            hours: {
+              weekday: ['0500', '2400'],
+              saturday: ['0530', '2400'],
+              holiday: ['0530', '2400']
+            }
+          };
+        })
+        .sort((a, b) => a.minRouteDist - b.minRouteDist)
+        .slice(0, 15);
     }
 
     // 심야 폐쇄 감금 위험 분석
@@ -308,18 +343,34 @@ export default async function handler(req, res) {
       };
     }));
 
-    results.sort((a, b) => (a[q.priority === 'carry' ? 'carry' : 'total'] ?? Infinity) - (b[q.priority === 'carry' ? 'carry' : 'total'] ?? Infinity));
+    // 편의성(소요시간 최소) 및 가능성(칸수 넉넉함) 종합 가중치 정렬
+    results.sort((a, b) => {
+      const timeA = q.priority === 'carry' ? (a.carry ?? 9999) : (a.total ?? 9999);
+      const timeB = q.priority === 'carry' ? (b.carry ?? 9999) : (b.total ?? 9999);
+
+      // 소요 시간 차이가 5분 이내일 경우, 설치 칸수(보관 가능성)가 더 많은 곳을 우선 추천
+      if (Math.abs(timeA - timeB) <= 5) {
+        const slotsA = a.available || 0;
+        const slotsB = b.available || 0;
+        if (slotsA !== slotsB) return slotsB - slotsA;
+      }
+
+      return timeA - timeB;
+    });
+
+    // 편의성과 가능성 상위 7개까지만 엄선
+    const top7Results = results.slice(0, 7);
 
     res.status(200).json({
       start,
       visit,
       end,
-      results,
+      results: top7Results,
       scope: isOfflineFallback
         ? '전국 공공데이터(서울·부산·KTX) 기반 최적 동선 및 규격별 정직한 설치 수량'
         : '실시간 공영 보관함 API 및 카카오 대중교통 경로 연계',
       source: '서울교통공사 · 부산교통공사 · 국가철도공단 · 행정안전부 공공데이터',
-      note: '출발-보관-방문-회수 전체 동선 시간 손실(우회 시간)을 비교 분석한 결과입니다.'
+      note: '이동 편의성(소요 시간 최소)과 보관 가능성(설치 수량)을 종합 분석한 상위 7개 추천 결과입니다.'
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

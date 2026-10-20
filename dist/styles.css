@@ -159,7 +159,7 @@ h1 {
 /* Workspace */
 .workspace {
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: 410px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
 }
@@ -169,7 +169,7 @@ h1 {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 24px;
+  padding: 22px;
   box-shadow: var(--shadow-sm);
   position: sticky;
   top: 90px;
@@ -260,6 +260,18 @@ h1 {
 /* Form Fields */
 .form-group {
   margin-bottom: 16px;
+  position: relative;
+}
+
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.field-header .field-label {
+  margin-bottom: 0;
 }
 
 .field-label {
@@ -272,8 +284,239 @@ h1 {
   margin-bottom: 8px;
 }
 
+.direct-input-btn {
+  background: var(--surface-sub);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.4;
+}
+
+.direct-input-btn:hover {
+  background: var(--primary-light);
+  border-color: #cbd8c7;
+}
+
+.direct-input-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.direct-input-wrap {
+  margin-top: 8px;
+  animation: slideDownDirect 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownDirect {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.direct-text-input {
+  width: 100%;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: var(--surface);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text-main);
+  box-sizing: border-box;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+  transition: all 0.2s ease;
+}
+
+.direct-text-input:focus {
+  border-color: var(--border-focus);
+}
+
+.direct-text-input::placeholder {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .custom-select-wrap {
   position: relative;
+  width: 100%;
+}
+
+.custom-select-wrap.open {
+  z-index: 100;
+}
+
+/* Custom Trigger Button (대체 UI) */
+.custom-select-trigger {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 36px 12px 14px;
+  background: var(--surface);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 1.4;
+  outline: none;
+  position: relative;
+}
+
+.custom-select-trigger:hover {
+  border-color: #c7d1c3;
+}
+
+.custom-select-wrap.open .custom-select-trigger,
+.custom-select-trigger:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.custom-select-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+.custom-select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 10px;
+  color: var(--text-sub);
+  transition: transform 0.2s ease;
+}
+
+.custom-select-wrap.open .custom-select-arrow {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* Custom Downward Dropdown Menu (항상 아래로 펼쳐짐) */
+.custom-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 5px); /* 무조건 아래쪽(밑)으로 배치 */
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px rgba(25, 43, 35, 0.14);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 6px;
+  display: none;
+  animation: dropdownFadeDown 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  scrollbar-width: thin;
+  scrollbar-color: #cbd8c7 transparent;
+}
+
+.custom-dropdown-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-dropdown-panel::-webkit-scrollbar-thumb {
+  background: #cbd8c7;
+  border-radius: 3px;
+}
+
+@keyframes dropdownFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-select-wrap.open .custom-dropdown-panel {
+  display: block;
+}
+
+.dropdown-optgroup-title {
+  padding: 8px 10px 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.2px;
+}
+
+.dropdown-optgroup-title:not(:first-child) {
+  border-top: 1px solid #edf2eb;
+  margin-top: 6px;
+  padding-top: 8px;
+}
+
+.dropdown-option {
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-main);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dropdown-option:hover {
+  background: var(--surface-sub);
+  color: var(--primary);
+}
+
+.dropdown-option.selected {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.dropdown-option.selected::after {
+  content: '✓';
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+/* 네이티브 select 접근성 및 폼 연동 유지용 은닉 */
+.custom-select-native-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .custom-select {
@@ -297,16 +540,6 @@ h1 {
 .custom-select:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--primary-glow);
-}
-
-.custom-select-arrow {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  font-size: 10px;
-  color: var(--text-sub);
 }
 
 /* Route Connectors */
@@ -390,20 +623,54 @@ h1 {
 
 .date-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.date-input-wrap {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.date-sub-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-bottom: 5px;
 }
 
 input[type="datetime-local"] {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 10px 10px;
-  font-size: 12px;
+  padding: 8px 6px;
+  font-size: 11.5px;
+  font-family: inherit;
   font-weight: 600;
   color: var(--text-main);
   transition: all 0.2s;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+
+input[type="datetime-local"]::-webkit-datetime-edit {
+  padding: 0;
+}
+
+input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
 }
 
 input[type="datetime-local"]:focus {
@@ -734,5 +1001,12 @@ footer {
   }
   h1 {
     font-size: 30px;
+  }
+}
+
+@media (max-width: 520px) {
+  .date-fields {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }

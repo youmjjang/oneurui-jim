@@ -1,7 +1,190 @@
 const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clock = s => s ? String(s).slice(0, 2) + ':' + String(s).slice(2, 4) : '24:00';
 
 // -------------------------------------------------------------------
-// 1. 시간 헬퍼 및 [현재 시각] 버튼
+// 1. 커스텀 드롭다운 시스템 (항상 밑/아래 방향으로 펼쳐짐 보장)
+// -------------------------------------------------------------------
+function initCustomDropdowns() {
+  document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
+    const select = wrap.querySelector('select');
+    if (!select || wrap.querySelector('.custom-dropdown-panel')) return;
+
+    // 네이티브 select는 폼 전송/상태 보존용으로 숨김
+    select.classList.add('custom-select-native-hidden');
+
+    // 기존의 정적 arrow 태그 제거 후 트리거 내부에 배치
+    const existingArrow = wrap.querySelector('.custom-select-arrow');
+    if (existingArrow) existingArrow.remove();
+
+    // 커스텀 트리거 버튼 생성
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'custom-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'custom-select-text';
+    const selectedOpt = select.selectedOptions[0] || select.options[0];
+    textSpan.textContent = selectedOpt ? selectedOpt.textContent : '';
+
+    const arrowSpan = document.createElement('span');
+    arrowSpan.className = 'custom-select-arrow';
+    arrowSpan.textContent = '▼';
+
+    trigger.appendChild(textSpan);
+    trigger.appendChild(arrowSpan);
+    wrap.appendChild(trigger);
+
+    // 커스텀 드롭다운 목록 패널 (top: 100%로 무조건 아래 방향으로 전개)
+    const panel = document.createElement('div');
+    panel.className = 'custom-dropdown-panel';
+    panel.setAttribute('role', 'listbox');
+
+    const buildOptions = () => {
+      let html = '';
+      Array.from(select.children).forEach(child => {
+        if (child.tagName === 'OPTGROUP') {
+          html += `<div class="dropdown-optgroup-title">${esc(child.label)}</div>`;
+          Array.from(child.children).forEach(opt => {
+            const isSelected = opt.value === select.value;
+            html += `<div class="dropdown-option ${isSelected ? 'selected' : ''}" data-value="${esc(opt.value)}">${esc(opt.textContent)}</div>`;
+          });
+        } else if (child.tagName === 'OPTION') {
+          const isSelected = child.value === select.value;
+          html += `<div class="dropdown-option ${isSelected ? 'selected' : ''}" data-value="${esc(child.value)}">${esc(child.textContent)}</div>`;
+        }
+      });
+      panel.innerHTML = html;
+    };
+
+    buildOptions();
+    wrap.appendChild(panel);
+
+    // 트리거 클릭 시 하향 드롭다운 열기/닫기
+    trigger.onclick = e => {
+      e.stopPropagation();
+      const isOpen = wrap.classList.contains('open');
+
+      // 다른 열린 드롭다운 일괄 닫기
+      document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+        if (w !== wrap) {
+          w.classList.remove('open');
+          w.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      if (isOpen) {
+        wrap.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+      } else {
+        wrap.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+        const sel = panel.querySelector('.dropdown-option.selected');
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+      }
+    };
+
+    // 옵션 클릭 시 값 반영 및 네이티브 change 이벤트 발생
+    panel.onclick = e => {
+      const optEl = e.target.closest('.dropdown-option');
+      if (!optEl) return;
+      e.stopPropagation();
+
+      const newVal = optEl.dataset.value;
+      select.value = newVal;
+      syncSelectWrap(wrap, select);
+      wrap.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    // 네이티브 select의 변경 이벤트 수신 시 UI 동기화
+    select.addEventListener('change', () => {
+      syncSelectWrap(wrap, select);
+    });
+  });
+}
+
+function syncSelectWrap(wrap, select) {
+  const triggerText = wrap.querySelector('.custom-select-text');
+  const selectedOpt = select.selectedOptions[0];
+  if (triggerText && selectedOpt) {
+    triggerText.textContent = selectedOpt.textContent;
+  }
+  const panel = wrap.querySelector('.custom-dropdown-panel');
+  if (panel) {
+    panel.querySelectorAll('.dropdown-option').forEach(el => {
+      if (el.dataset.value === select.value) {
+        el.classList.add('selected');
+      } else {
+        el.classList.remove('selected');
+      }
+    });
+  }
+}
+
+function syncAllCustomSelects() {
+  document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
+    const select = wrap.querySelector('select');
+    if (select) syncSelectWrap(wrap, select);
+  });
+}
+
+// 화면 외부 클릭 시 드롭다운 닫기
+document.addEventListener('click', e => {
+  if (!e.target.closest('.custom-select-wrap')) {
+    document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+      w.classList.remove('open');
+      w.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+});
+
+// ESC 키 입력 시 닫기
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
+      w.classList.remove('open');
+      w.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+});
+
+// -------------------------------------------------------------------
+// 2. 직접 입력 토글 기능 (클릭 시 별도 입력창 노출 및 자동 포커스)
+// -------------------------------------------------------------------
+function initDirectInputToggles() {
+  document.querySelectorAll('.direct-input-btn').forEach(btn => {
+    btn.onclick = () => {
+      const targetId = btn.dataset.target;
+      const targetEl = $(targetId);
+      if (!targetEl) return;
+
+      const isVisible = targetEl.style.display !== 'none';
+      if (isVisible) {
+        targetEl.style.display = 'none';
+        btn.classList.remove('active');
+        btn.textContent = '직접 입력';
+        const input = targetEl.querySelector('input');
+        if (input) input.value = '';
+      } else {
+        targetEl.style.display = 'block';
+        btn.classList.add('active');
+        btn.textContent = '목록 선택';
+        const input = targetEl.querySelector('input');
+        if (input) {
+          input.focus();
+        }
+      }
+    };
+  });
+}
+
+// -------------------------------------------------------------------
+// 3. 시간 헬퍼 및 [현재 시각] 버튼
 // -------------------------------------------------------------------
 const formatLocalTime = d => {
   const pad = n => String(n).padStart(2, '0');
@@ -27,6 +210,31 @@ setCurrentTimes();
 $('nowTimeBtn').onclick = () => {
   setCurrentTimes();
 };
+
+// 소요 시간 표기 포맷터 (60분 이상 시 '1시간', 'X시간 XX분' 등 시간 단위로 변환)
+function formatMinutes(min) {
+  if (min === null || min === undefined) return '-';
+  const m = Math.round(Number(min) || 0);
+  if (m < 60) {
+    return `${m}<em>분</em>`;
+  }
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  if (rem === 0) {
+    return `${h}<em>시간</em>`;
+  }
+  return `${h}<em>시간</em> ${rem}<em>분</em>`;
+}
+
+function formatMinutesText(min) {
+  if (min === null || min === undefined) return '-';
+  const m = Math.round(Number(min) || 0);
+  if (m < 60) return `${m}분`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  if (rem === 0) return `${h}시간`;
+  return `${h}시간 ${rem}분`;
+}
 
 // -------------------------------------------------------------------
 // 2. 모드 전환 (바로 맡기기 vs 일정에 맞추기)
@@ -115,9 +323,22 @@ function renderRecentChips() {
       const v = btn.dataset.visit;
       const e = btn.dataset.end;
 
+      // 직접 입력 창 열려있으면 초기화
+      document.querySelectorAll('.direct-input-wrap').forEach(w => {
+        w.style.display = 'none';
+        const inp = w.querySelector('input');
+        if (inp) inp.value = '';
+      });
+      document.querySelectorAll('.direct-input-btn').forEach(b => {
+        b.classList.remove('active');
+        b.textContent = '직접 입력';
+      });
+
       $('startSelect').value = s;
       $('visitSelect').value = v;
       $('endSelect').value = (e === s) ? 'SAME_AS_START' : e;
+
+      syncAllCustomSelects();
 
       setMode('route');
       $('plannerForm').requestSubmit();
@@ -142,6 +363,7 @@ $('regionSelect').onchange = e => {
     $('startSelect').value = '서울역';
     $('visitSelect').value = '성수';
   }
+  syncAllCustomSelects();
 };
 
 // -------------------------------------------------------------------
@@ -388,21 +610,41 @@ $('closeSpecDialog').onclick = () => $('specDialog').close();
 // -------------------------------------------------------------------
 // 7. 검색 폼 제출 및 최적 결과 렌더링
 // -------------------------------------------------------------------
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = s => s ? String(s).slice(0, 2) + ':' + String(s).slice(2, 4) : '24:00';
-
 $('plannerForm').onsubmit = async e => {
   e.preventDefault();
   const btn = document.querySelector('.search-button');
   if (btn.disabled) return;
 
-  const startVal = $('startSelect').value;
-  const visitVal = $('visitSelect').value;
-  const endVal = ($('endSelect').value === 'SAME_AS_START') ? startVal : $('endSelect').value;
+  const regionVal = ($('regionDirectWrap')?.style.display !== 'none' && $('regionDirectInput')?.value.trim())
+    ? $('regionDirectInput').value.trim()
+    : $('regionSelect').value;
+
+  const startVal = ($('startDirectWrap')?.style.display !== 'none' && $('startDirectInput')?.value.trim())
+    ? $('startDirectInput').value.trim()
+    : $('startSelect').value;
+
+  const visitVal = ($('visitDirectWrap')?.style.display !== 'none' && $('visitDirectInput')?.value.trim())
+    ? $('visitDirectInput').value.trim()
+    : $('visitSelect').value;
+
+  const endValRaw = ($('endDirectWrap')?.style.display !== 'none' && $('endDirectInput')?.value.trim())
+    ? $('endDirectInput').value.trim()
+    : $('endSelect').value;
+  const endVal = (endValRaw === 'SAME_AS_START') ? startVal : endValRaw;
+
+  let priorityVal = $('priority').value;
+  if ($('priorityDirectWrap')?.style.display !== 'none' && $('priorityDirectInput')?.value.trim()) {
+    const customP = $('priorityDirectInput').value.trim();
+    if (customP.includes('짐') || customP.includes('도보') || customP.includes('무게')) {
+      priorityVal = 'carry';
+    } else {
+      priorityVal = 'total';
+    }
+  }
+
   const sizeVal = document.querySelector('.size-btn.active').dataset.size;
   const depositVal = $('deposit').value;
   const pickupVal = $('pickup').value;
-  const priorityVal = $('priority').value;
 
   if (new Date(pickupVal) <= new Date(depositVal)) {
     $('formError').textContent = '찾을 시각은 맡길 시각 이후로 선택해주세요.';
@@ -417,6 +659,7 @@ $('plannerForm').onsubmit = async e => {
     start: startVal,
     visit: visitVal,
     end: endVal,
+    region: regionVal,
     mode: currentMode,
     size: sizeVal,
     priority: priorityVal,
@@ -439,18 +682,19 @@ $('plannerForm').onsubmit = async e => {
     }
 
     $('emptyGuide').style.display = 'none';
-    $('resultsCount').textContent = d.results.length;
+    const displayResults = (d.results || []).slice(0, 7);
+    $('resultsCount').textContent = displayResults.length;
 
     $('summary').style.display = 'block';
     $('summary').innerHTML = `
       <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} 일정</strong>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-        ${esc(d.note)}
+        ${esc(d.note || '이동 편의성과 보관 가능성 상위 7개 보관함 추천 결과입니다.')}
       </div>
     `;
 
-    $('cards').innerHTML = d.results.length
-      ? d.results.map((l, index) => {
+    $('cards').innerHTML = displayResults.length
+      ? displayResults.map((l, index) => {
           const isBest = index === 0;
           return `
             <article class="locker-card ${isBest ? 'selected' : ''}">
@@ -477,12 +721,12 @@ $('plannerForm').onsubmit = async e => {
               <div class="metrics">
                 <div class="metric">
                   <small>전체 이동시간</small>
-                  <strong>${l.total === null ? '-' : l.total + '<em>분</em>'}</strong>
+                  <strong>${formatMinutes(l.total)}</strong>
                   <small class="note">출발→보관→방문→회수</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
-                  <strong style="color:var(--primary);">${l.carry === null ? '-' : l.carry + '<em>분</em>'}</strong>
+                  <strong style="color:var(--primary);">${formatMinutes(l.carry)}</strong>
                   <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
@@ -509,7 +753,7 @@ $('plannerForm').onsubmit = async e => {
                   ${l.legs.map((leg, i) => `
                     <div style="margin:4px 0;">
                       <strong>${['1. 출발지 → 보관함', '2. 보관함 → 목적지', '3. 목적지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
-                      ${leg ? leg.minutes + '분 (' + leg.steps.map(esc).join(' · ') + ')' : '-'}
+                      ${leg ? formatMinutesText(leg.minutes) + ' (' + leg.steps.map(esc).join(' · ') + ')' : '-'}
                     </div>
                   `).join('')}
                 </div>
@@ -533,3 +777,9 @@ $('plannerForm').onsubmit = async e => {
     $('searchText').textContent = (currentMode === 'route') ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   }
 };
+
+// -------------------------------------------------------------------
+// 8. 초기 시스템 구동 (커스텀 드롭다운 및 직접 입력 토글 시스템)
+// -------------------------------------------------------------------
+initCustomDropdowns();
+initDirectInputToggles();
