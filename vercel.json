@@ -21,9 +21,6 @@
   "functions": {
     "api/search.js": {
       "maxDuration": 60
-    },
-    "api/walking.js": {
-      "maxDuration": 30
     }
   }
 }

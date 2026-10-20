@@ -3,21 +3,20 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const clock = s => s ? String(s).slice(0, 2) + ':' + String(s).slice(2, 4) : '24:00';
 
 // -------------------------------------------------------------------
-// 1. 커스텀 드롭다운 시스템 (항상 밑/아래 방향으로 펼쳐짐 보장)
+// 1. 커스텀 드롭다운 시스템 (하향 전개 + 맨 하단 직접 입력 메뉴 일체화)
 // -------------------------------------------------------------------
 function initCustomDropdowns() {
   document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
     const select = wrap.querySelector('select');
     if (!select || wrap.querySelector('.custom-dropdown-panel')) return;
 
-    // 네이티브 select는 폼 전송/상태 보존용으로 숨김
+    // 네이티브 select 은닉
     select.classList.add('custom-select-native-hidden');
 
-    // 기존의 정적 arrow 태그 제거 후 트리거 내부에 배치
     const existingArrow = wrap.querySelector('.custom-select-arrow');
     if (existingArrow) existingArrow.remove();
 
-    // 커스텀 트리거 버튼 생성
+    // 1. 커스텀 트리거 버튼
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'custom-select-trigger';
@@ -37,7 +36,26 @@ function initCustomDropdowns() {
     trigger.appendChild(arrowSpan);
     wrap.appendChild(trigger);
 
-    // 커스텀 드롭다운 목록 패널 (top: 100%로 무조건 아래 방향으로 전개)
+    // 2. 인라인 직접 입력 컨테이너 (직접 입력 클릭 시 원래 선택란에서 바로 입력)
+    const inlineWrap = document.createElement('div');
+    inlineWrap.className = 'custom-select-inline-wrap';
+
+    const inlineInput = document.createElement('input');
+    inlineInput.type = 'text';
+    inlineInput.className = 'custom-select-inline-input';
+    inlineInput.placeholder = wrap.dataset.placeholder || '직접 입력';
+
+    const revertBtn = document.createElement('button');
+    revertBtn.type = 'button';
+    revertBtn.className = 'custom-select-revert-btn';
+    revertBtn.textContent = '목록';
+    revertBtn.title = '드롭다운 목록으로 돌아가기';
+
+    inlineWrap.appendChild(inlineInput);
+    inlineWrap.appendChild(revertBtn);
+    wrap.appendChild(inlineWrap);
+
+    // 3. 커스텀 드롭다운 목록 패널 (하향 전개)
     const panel = document.createElement('div');
     panel.className = 'custom-dropdown-panel';
     panel.setAttribute('role', 'listbox');
@@ -48,12 +66,14 @@ function initCustomDropdowns() {
         if (child.tagName === 'OPTGROUP') {
           html += `<div class="dropdown-optgroup-title">${esc(child.label)}</div>`;
           Array.from(child.children).forEach(opt => {
+            const isDirect = opt.value === '__DIRECT_INPUT__';
             const isSelected = opt.value === select.value;
-            html += `<div class="dropdown-option ${isSelected ? 'selected' : ''}" data-value="${esc(opt.value)}">${esc(opt.textContent)}</div>`;
+            html += `<div class="dropdown-option ${isDirect ? 'dropdown-option-direct' : ''} ${isSelected ? 'selected' : ''}" data-value="${esc(opt.value)}">${esc(opt.textContent)}</div>`;
           });
         } else if (child.tagName === 'OPTION') {
+          const isDirect = child.value === '__DIRECT_INPUT__';
           const isSelected = child.value === select.value;
-          html += `<div class="dropdown-option ${isSelected ? 'selected' : ''}" data-value="${esc(child.value)}">${esc(child.textContent)}</div>`;
+          html += `<div class="dropdown-option ${isDirect ? 'dropdown-option-direct' : ''} ${isSelected ? 'selected' : ''}" data-value="${esc(child.value)}">${esc(child.textContent)}</div>`;
         }
       });
       panel.innerHTML = html;
@@ -67,7 +87,6 @@ function initCustomDropdowns() {
       e.stopPropagation();
       const isOpen = wrap.classList.contains('open');
 
-      // 다른 열린 드롭다운 일괄 닫기
       document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
         if (w !== wrap) {
           w.classList.remove('open');
@@ -86,24 +105,49 @@ function initCustomDropdowns() {
       }
     };
 
-    // 옵션 클릭 시 값 반영 및 네이티브 change 이벤트 발생
+    // 옵션 클릭 시
     panel.onclick = e => {
       const optEl = e.target.closest('.dropdown-option');
       if (!optEl) return;
       e.stopPropagation();
 
-      const newVal = optEl.dataset.value;
-      select.value = newVal;
-      syncSelectWrap(wrap, select);
+      const val = optEl.dataset.value;
       wrap.classList.remove('open');
       trigger.setAttribute('aria-expanded', 'false');
 
+      if (val === '__DIRECT_INPUT__') {
+        wrap.classList.add('inline-direct-mode');
+        inlineInput.value = '';
+        inlineInput.focus();
+      } else {
+        wrap.classList.remove('inline-direct-mode');
+        select.value = val;
+        syncSelectWrap(wrap, select);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+
+    // [목록] 복귀 버튼 클릭 시
+    revertBtn.onclick = e => {
+      e.stopPropagation();
+      wrap.classList.remove('inline-direct-mode');
+      inlineInput.value = '';
+      const firstValid = Array.from(select.options).find(o => o.value !== '__DIRECT_INPUT__');
+      if (firstValid) {
+        select.value = firstValid.value;
+        syncSelectWrap(wrap, select);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+
+    inlineInput.oninput = () => {
       select.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
-    // 네이티브 select의 변경 이벤트 수신 시 UI 동기화
     select.addEventListener('change', () => {
-      syncSelectWrap(wrap, select);
+      if (!wrap.classList.contains('inline-direct-mode')) {
+        syncSelectWrap(wrap, select);
+      }
     });
   });
 }
@@ -129,11 +173,45 @@ function syncSelectWrap(wrap, select) {
 function syncAllCustomSelects() {
   document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
     const select = wrap.querySelector('select');
-    if (select) syncSelectWrap(wrap, select);
+    if (select && !wrap.classList.contains('inline-direct-mode')) {
+      syncSelectWrap(wrap, select);
+    }
   });
 }
 
-// 화면 외부 클릭 시 드롭다운 닫기
+function getFieldValue(selectId) {
+  const sel = $(selectId);
+  if (!sel) return '';
+  const wrap = sel.closest('.custom-select-wrap');
+  if (wrap && wrap.classList.contains('inline-direct-mode')) {
+    const inp = wrap.querySelector('.custom-select-inline-input');
+    return inp ? inp.value.trim() : '';
+  }
+  return (sel.value === '__DIRECT_INPUT__') ? '' : sel.value;
+}
+
+function setFieldValue(selectId, val) {
+  const sel = $(selectId);
+  if (!sel) return;
+  const wrap = sel.closest('.custom-select-wrap');
+  if (!wrap) {
+    sel.value = val;
+    return;
+  }
+
+  const optionExists = Array.from(sel.options).some(o => o.value === val && o.value !== '__DIRECT_INPUT__');
+  if (optionExists) {
+    wrap.classList.remove('inline-direct-mode');
+    sel.value = val;
+    syncSelectWrap(wrap, sel);
+  } else {
+    wrap.classList.add('inline-direct-mode');
+    const inp = wrap.querySelector('.custom-select-inline-input');
+    if (inp) inp.value = val;
+  }
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 document.addEventListener('click', e => {
   if (!e.target.closest('.custom-select-wrap')) {
     document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
@@ -143,7 +221,6 @@ document.addEventListener('click', e => {
   }
 });
 
-// ESC 키 입력 시 닫기
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.custom-select-wrap.open').forEach(w => {
@@ -154,75 +231,287 @@ document.addEventListener('keydown', e => {
 });
 
 // -------------------------------------------------------------------
-// 2. 직접 입력 토글 기능 (클릭 시 별도 입력창 노출 및 자동 포커스)
+// 2. 지역 선택 연동 가격 변동 시스템
 // -------------------------------------------------------------------
-function initDirectInputToggles() {
-  document.querySelectorAll('.direct-input-btn').forEach(btn => {
-    btn.onclick = () => {
-      const targetId = btn.dataset.target;
-      const targetEl = $(targetId);
-      if (!targetEl) return;
+const REGION_PRICES = {
+  SEOUL: { S: 2200, M: 3300, L: 4400, label: '수도권 기준' },
+  BUSAN: { S: 2000, M: 3000, L: 4000, label: '부산 기준' },
+  DAEGU: { S: 2000, M: 3000, L: 4000, label: '대구 기준' },
+  DAEJEON: { S: 2000, M: 3000, L: 4000, label: '대전 기준' },
+  GWANGJU: { S: 2000, M: 3000, L: 4000, label: '광주 기준' },
+  AIRPORT: { S: 3000, M: 4000, L: 5500, label: '공항 터미널 기준' },
+  RAILWAY: { S: 2500, M: 3500, L: 5000, label: 'KTX/철도 기준' },
+  ALL: { S: 2200, M: 3300, L: 4400, label: '전국 표준' }
+};
 
-      const isVisible = targetEl.style.display !== 'none';
-      if (isVisible) {
-        targetEl.style.display = 'none';
-        btn.classList.remove('active');
-        btn.textContent = '직접 입력';
-        const input = targetEl.querySelector('input');
-        if (input) input.value = '';
-      } else {
-        targetEl.style.display = 'block';
-        btn.classList.add('active');
-        btn.textContent = '목록 선택';
-        const input = targetEl.querySelector('input');
-        if (input) {
-          input.focus();
-        }
-      }
-    };
-  });
+function updatePricesByRegion() {
+  const regionVal = getFieldValue('regionSelect');
+  let regKey = 'SEOUL';
+  if (regionVal === 'BUSAN' || regionVal.includes('부산')) {
+    regKey = 'BUSAN';
+  } else if (regionVal === 'DAEGU' || regionVal.includes('대구')) {
+    regKey = 'DAEGU';
+  } else if (regionVal === 'DAEJEON' || regionVal.includes('대전')) {
+    regKey = 'DAEJEON';
+  } else if (regionVal === 'GWANGJU' || regionVal.includes('광주')) {
+    regKey = 'GWANGJU';
+  } else if (regionVal === 'AIRPORT' || regionVal.includes('공항')) {
+    regKey = 'AIRPORT';
+  } else if (regionVal === 'RAILWAY' || regionVal.includes('철도') || regionVal.includes('KTX') || regionVal.includes('SRT')) {
+    regKey = 'RAILWAY';
+  } else if (regionVal === 'ALL' || regionVal.includes('전국')) {
+    regKey = 'ALL';
+  }
+
+  const p = REGION_PRICES[regKey] || REGION_PRICES.ALL;
+
+  if ($('regionPriceNotice')) {
+    $('regionPriceNotice').textContent = `${p.label} (4시간)`;
+  }
+  if ($('priceS')) $('priceS').textContent = `4시간 ${p.S.toLocaleString()}원`;
+  if ($('priceM')) $('priceM').textContent = `4시간 ${p.M.toLocaleString()}원`;
+  if ($('priceL')) $('priceL').textContent = `4시간 ${p.L.toLocaleString()}원`;
 }
 
 // -------------------------------------------------------------------
-// 3. 시간 헬퍼 및 [현재 시각] 버튼
+// 3. 맞춤 포레스트 그린 날짜 & 시각 피커 시스템 (Chromium 블루 원천 제거)
 // -------------------------------------------------------------------
-const formatLocalTime = d => {
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function formatKoreanDateTime(dateObj) {
+  const Y = dateObj.getFullYear();
+  const M = dateObj.getMonth() + 1;
+  const D = dateObj.getDate();
+  const w = WEEKDAYS[dateObj.getDay()];
+  const h = dateObj.getHours();
+  const m = String(dateObj.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? '오후' : '오전';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return `${Y}. ${M}. ${D} (${w}) ${ampm} ${String(displayH).padStart(2, '0')}:${m}`;
+}
+
+function formatYmd(d) {
   const pad = n => String(n).padStart(2, '0');
-  const Y = d.getFullYear();
-  const M = pad(d.getMonth() + 1);
-  const D = pad(d.getDate());
-  const h = pad(d.getHours());
-  const m = pad(d.getMinutes());
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatIsoDateTime(dateObj) {
+  const pad = n => String(n).padStart(2, '0');
+  const Y = dateObj.getFullYear();
+  const M = pad(dateObj.getMonth() + 1);
+  const D = pad(dateObj.getDate());
+  const h = pad(dateObj.getHours());
+  const m = pad(dateObj.getMinutes());
   return `${Y}-${M}-${D}T${h}:${m}`;
+}
+
+let activeDtTarget = 'deposit'; // 'deposit' or 'pickup'
+let dtState = {
+  dateStr: '', // 'YYYY-MM-DD'
+  hour: 14,    // 0 ~ 23
+  minute: 0    // 0 ~ 59
 };
+
+function initCustomDatePicker() {
+  const modal = $('customDatePickerDialog');
+  const dateInput = $('dtNativeDateInput');
+  const hourInput = $('dtInputHour');
+  const minInput = $('dtInputMinute');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function syncStateToInputs() {
+    if (dateInput) dateInput.value = dtState.dateStr;
+    if (hourInput) hourInput.value = pad(dtState.hour);
+    if (minInput) minInput.value = pad(dtState.minute);
+    updateDtPreview();
+  }
+
+  // 1. 빠른 날짜 버튼 (오늘, 내일, 모레, 1주일 뒤)
+  const quickDateBtns = document.querySelectorAll('#dtQuickDateGroup .dt-pill');
+  quickDateBtns.forEach(btn => {
+    btn.onclick = () => {
+      quickDateBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const days = parseInt(btn.dataset.days, 10) || 0;
+      const targetDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      dtState.dateStr = formatYmd(targetDate);
+      syncStateToInputs();
+    };
+  });
+
+  // 2. 달력 날짜 직접 변경 이벤트
+  if (dateInput) {
+    dateInput.onchange = () => {
+      if (!dateInput.value) return;
+      dtState.dateStr = dateInput.value;
+      quickDateBtns.forEach(b => b.classList.remove('active'));
+      updateDtPreview();
+    };
+  }
+
+  // 3. 시간 (Hour 0~23) 조작
+  if (hourInput) {
+    hourInput.onchange = () => {
+      let val = parseInt(hourInput.value, 10);
+      if (isNaN(val)) val = 12;
+      val = Math.max(0, Math.min(23, val));
+      dtState.hour = val;
+      hourInput.value = pad(val);
+      updateDtPreview();
+    };
+  }
+  $('hourStepDown').onclick = () => {
+    dtState.hour = (dtState.hour + 23) % 24;
+    hourInput.value = pad(dtState.hour);
+    updateDtPreview();
+  };
+  $('hourStepUp').onclick = () => {
+    dtState.hour = (dtState.hour + 1) % 24;
+    hourInput.value = pad(dtState.hour);
+    updateDtPreview();
+  };
+
+  // 4. 분 (Minute 0~59) 조작 (1분 단위 자유 조절)
+  if (minInput) {
+    minInput.onchange = () => {
+      let val = parseInt(minInput.value, 10);
+      if (isNaN(val)) val = 0;
+      val = Math.max(0, Math.min(59, val));
+      dtState.minute = val;
+      minInput.value = pad(val);
+      updateDtPreview();
+    };
+  }
+  $('minStepDown').onclick = () => {
+    dtState.minute = (dtState.minute + 59) % 60;
+    minInput.value = pad(dtState.minute);
+    updateDtPreview();
+  };
+  $('minStepUp').onclick = () => {
+    dtState.minute = (dtState.minute + 1) % 60;
+    minInput.value = pad(dtState.minute);
+    updateDtPreview();
+  };
+
+  // 5. 빠른 시간 간편 맞춤
+  const quickTimeBtns = document.querySelectorAll('#dtQuickTimeGroup .dt-pill');
+  quickTimeBtns.forEach(btn => {
+    btn.onclick = () => {
+      const q = btn.dataset.quick;
+      const now = new Date();
+      if (q === 'now') {
+        dtState.dateStr = formatYmd(now);
+        dtState.hour = now.getHours();
+        dtState.minute = now.getMinutes();
+      } else if (q === 'plus1') {
+        const plus1 = new Date(Date.now() + 1 * 60 * 60 * 1000);
+        dtState.hour = plus1.getHours();
+      } else if (q === 'plus2') {
+        const plus2 = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        dtState.hour = plus2.getHours();
+      } else if (q === 'plus4') {
+        const plus4 = new Date(Date.now() + 4 * 60 * 60 * 1000);
+        dtState.hour = plus4.getHours();
+      } else if (q === 'min00') {
+        dtState.minute = 0;
+      } else if (q === 'min30') {
+        dtState.minute = 30;
+      }
+      syncStateToInputs();
+    };
+  });
+
+  // 트리거 버튼 클릭 시 모달 열기
+  $('depositBtn').onclick = () => openDtModal('deposit');
+  $('pickupBtn').onclick = () => openDtModal('pickup');
+  $('closeDtPickerBtn').onclick = () => modal.close();
+
+  // [선택 완료] 버튼 클릭 시
+  $('dtApplyBtn').onclick = () => {
+    const finalDate = getSelectedDateObj();
+    const iso = formatIsoDateTime(finalDate);
+    const kor = formatKoreanDateTime(finalDate);
+
+    if (activeDtTarget === 'deposit') {
+      $('deposit').value = iso;
+      $('depositDisplay').textContent = kor;
+    } else {
+      $('pickup').value = iso;
+      $('pickupDisplay').textContent = kor;
+    }
+    modal.close();
+  };
+}
+
+function openDtModal(target) {
+  activeDtTarget = target;
+  $('dtPickerModalTitle').textContent = target === 'deposit' ? '📅 짐 맡길 시각 선택' : '🕒 짐 찾을 시각 선택';
+
+  const curVal = $(target).value;
+  const base = curVal ? new Date(curVal) : new Date();
+
+  dtState.dateStr = formatYmd(base);
+  dtState.hour = base.getHours();
+  dtState.minute = base.getMinutes();
+
+  const dateInput = $('dtNativeDateInput');
+  const hourInput = $('dtInputHour');
+  const minInput = $('dtInputMinute');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  if (dateInput) dateInput.value = dtState.dateStr;
+  if (hourInput) hourInput.value = pad(dtState.hour);
+  if (minInput) minInput.value = pad(dtState.minute);
+
+  // 오늘 날짜와 일치 여부에 따라 오늘 칩 활성화
+  const isToday = dtState.dateStr === formatYmd(new Date());
+  document.querySelectorAll('#dtQuickDateGroup .dt-pill').forEach((btn, idx) => {
+    btn.classList.toggle('active', isToday && idx === 0);
+  });
+
+  updateDtPreview();
+  $('customDatePickerDialog').showModal();
+}
+
+function getSelectedDateObj() {
+  const parts = dtState.dateStr.split('-').map(Number);
+  const year = parts[0] || new Date().getFullYear();
+  const month = (parts[1] || 1) - 1;
+  const day = parts[2] || new Date().getDate();
+  return new Date(year, month, day, dtState.hour, dtState.minute, 0, 0);
+}
+
+function updateDtPreview() {
+  const d = getSelectedDateObj();
+  const previewEl = $('dtPreviewText');
+  if (previewEl) {
+    previewEl.textContent = formatKoreanDateTime(d);
+  }
+}
 
 function setCurrentTimes() {
   const now = new Date();
-  $('deposit').value = formatLocalTime(now);
+  $('deposit').value = formatIsoDateTime(now);
+  $('depositDisplay').textContent = formatKoreanDateTime(now);
+
   const later = new Date(now.getTime() + 4 * 60 * 60 * 1000);
-  $('pickup').value = formatLocalTime(later);
+  $('pickup').value = formatIsoDateTime(later);
+  $('pickupDisplay').textContent = formatKoreanDateTime(later);
 }
 
-// 초기화 시 현재 시각 설정
-setCurrentTimes();
-
-// [현재 시각] 버튼 클릭 시 실제로 사용 가능한 현재 시간 주입
 $('nowTimeBtn').onclick = () => {
   setCurrentTimes();
 };
 
-// 소요 시간 표기 포맷터 (60분 이상 시 '1시간', 'X시간 XX분' 등 시간 단위로 변환)
 function formatMinutes(min) {
   if (min === null || min === undefined) return '-';
   const m = Math.round(Number(min) || 0);
-  if (m < 60) {
-    return `${m}<em>분</em>`;
-  }
+  if (m < 60) return `${m}<em>분</em>`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
-  if (rem === 0) {
-    return `${h}<em>시간</em>`;
-  }
+  if (rem === 0) return `${h}<em>시간</em>`;
   return `${h}<em>시간</em> ${rem}<em>분</em>`;
 }
 
@@ -237,52 +526,21 @@ function formatMinutesText(min) {
 }
 
 // -------------------------------------------------------------------
-// 2. 모드 전환 (바로 맡기기 vs 일정에 맞추기)
+// 4. 모드 전환 (바로 맡기기 vs 일정에 맞추기)
 // -------------------------------------------------------------------
 let currentMode = 'route';
-let currentCoords = null;
-$('locateBtn').onclick = () => {
-  setMode('near');
-  const status = $('locationStatus');
-  if (!navigator.geolocation) {
-    status.textContent = '이 브라우저에서는 위치를 확인할 수 없어요. 아래에서 역이나 장소를 선택해주세요.';
-    return;
-  }
-  $('locateBtn').disabled = true;
-  status.textContent = '현재 위치를 확인하고 있어요…';
-  navigator.geolocation.getCurrentPosition(position => {
-    currentCoords = { x: position.coords.longitude, y: position.coords.latitude };
-    status.textContent = '현재 위치를 찾았어요. 선택한 짐 크기로 주변 보관함을 검색합니다.';
-    $('locateBtn').disabled = false;
-    $('plannerForm').requestSubmit();
-  }, error => {
-    currentCoords = null;
-    $('locateBtn').disabled = false;
-    status.textContent = error.code === 1
-      ? '위치 권한이 꺼져 있어요. 아래에서 역이나 장소를 선택해 검색해주세요.'
-      : '현재 위치를 확인하지 못했어요. 다시 시도하거나 아래에서 장소를 선택해주세요.';
-  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
-};
-['startSelect', 'startDirectInput'].forEach(id => $(id).addEventListener('change', () => {
-  currentCoords = null;
-  $('locationStatus').textContent = '선택한 장소를 기준으로 검색해요. 내 위치 버튼을 누르면 현재 위치로 바뀝니다.';
-}));
 
 function setMode(value) {
   currentMode = value;
-
   const isRoute = value === 'route';
   $('routeFields').style.display = isRoute ? 'block' : 'none';
-  $('emptyGuide').querySelector('h3').textContent = isRoute ? '어디로 이동하시나요?' : '지금 가까운 곳부터 찾아보세요';
-  $('emptyGuide').querySelector('p').textContent = isRoute ? '출발지와 목적지를 선택하면 회수 동선까지 비교해요.' : '내 위치 버튼을 누르거나 역·장소와 짐 크기를 선택해 검색하세요.';
   $('priorityField').style.display = isRoute ? 'block' : 'none';
-  $('recentChips').parentElement.style.display = isRoute ? 'block' : 'none';
-  $('deposit').closest('.form-group').style.display = isRoute ? 'block' : 'none';
 
   $('nearTab').classList.toggle('active', !isRoute);
   $('nearTab').setAttribute('aria-selected', String(!isRoute));
   $('routeTab').classList.toggle('active', isRoute);
   $('routeTab').setAttribute('aria-selected', String(isRoute));
+
   $('searchText').textContent = isRoute ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   $('modeTitle').textContent = isRoute ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
   $('modeDescription').textContent = isRoute ? '방문과 짐 회수 동선을 함께 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
@@ -290,137 +548,6 @@ function setMode(value) {
 
 $('nearTab').onclick = () => setMode('near');
 $('routeTab').onclick = () => setMode('route');
-$('exampleBtn').onclick = () => {
-  currentCoords = null;
-  setMode('near');
-  $('startSelect').value = '서울역';
-  $('startDirectInput').value = '';
-  $('startDirectWrap').style.display = 'none';
-  syncAllCustomSelects();
-  $('locationStatus').textContent = '예시 미리보기 · 서울역 기준입니다. 실제 내 위치가 아닙니다.';
-  $('plannerForm').requestSubmit();
-};
-let resultLockers = [];
-let searchedOrigin = null;
-let searchedMode = 'near';
-let searchedVisit = null, searchedEnd = null;
-let selectedMapIndex = null;
-let map = null, pinLayer = null, walkingLine = null;
-let mapPins = [];
-let walkingRequest = null;
-function initLockerMap() {
-  if (!window.L) { $('mapStatus').textContent = '지도를 불러오지 못했어요. 아래 보관함 목록은 사용할 수 있어요.'; return; }
-  map = L.map('lockerMap', { scrollWheelZoom: false }).setView([37.5562,126.9723],13);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
-  pinLayer = L.layerGroup().addTo(map);
-}
-function clearWalking() {
-  if (walkingRequest) walkingRequest.abort();
-  walkingRequest = null;
-  if (walkingLine) { map.removeLayer(walkingLine); walkingLine = null; }
-  $('mapRouteStats').textContent = '';
-  $('walkingSteps').hidden = true;
-  $('drawWalkingRoute').disabled = false;
-  $('drawWalkingRoute').textContent = '이 지도에서 도보 길찾기 →';
-}
-function showAllPins() {
-  if (!map || !searchedOrigin) return;
-  const points = [[Number(searchedOrigin.y),Number(searchedOrigin.x)],...resultLockers.map(l=>[l.coordinates.lat,l.coordinates.lng])];
-  map.invalidateSize();
-  map.fitBounds(points, {padding:[35,35],maxZoom:16});
-}
-function renderLockerMap() {
-  if (!map) return;
-  clearWalking();
-  selectedMapIndex = null;
-  $('mapSelection').hidden = true;
-  $('itineraryPanel').hidden = true;
-  pinLayer.clearLayers(); mapPins = [];
-  L.circleMarker([Number(searchedOrigin.y),Number(searchedOrigin.x)],{radius:9,color:'#fff',weight:3,fillColor:'#3688e7',fillOpacity:1}).bindTooltip(esc(searchedOrigin.name),{permanent:true,direction:'top'}).addTo(pinLayer);
-  resultLockers.forEach((l,i)=>{
-    const marker = L.marker([l.coordinates.lat,l.coordinates.lng],{ icon:L.divIcon({className:'locker-pin-wrapper',html:'<span class="locker-pin">'+(i+1)+'</span>',iconSize:[32,38],iconAnchor:[16,35]}),title:l.name,keyboard:true });
-    marker.bindTooltip(esc(l.name));
-    marker.on('click',()=>selectMapLocker(i)); marker.addTo(pinLayer); mapPins.push(marker);
-  });
-  $('mapStatus').textContent = searchedOrigin.name+' 기준 · 보관함 '+resultLockers.length+'곳 · 숫자 핀을 눌러보세요.';
-  showAllPins();
-}
-function selectMapLocker(index) {
-  if (!map || !resultLockers[index]) return;
-  clearWalking(); selectedMapIndex = index;
-  const locker = resultLockers[index];
-  $('mapSelection').hidden = false;
-  $('mapLockerTag').textContent = '보관함 '+(index+1)+' · '+(locker.location.includes('개찰구 안')?'개찰구 안':'위치 안내 확인');
-  $('mapLockerName').textContent = locker.name;
-  $('mapLockerLocation').textContent = locker.location;
-  $('drawWalkingRoute').hidden = searchedMode === 'route';
-  $('itineraryPanel').hidden = searchedMode !== 'route';
-  $('mapRoutingPrivacy').textContent = searchedMode === 'route' ? '대중교통 경로: 카카오맵 API · 점선은 도보, 실선은 탑승 구간입니다. 역 내부 층·출구 안내를 함께 확인해주세요.' : '길찾기를 누르면 출발·도착 좌표가 OSM 경로 서비스로 전달됩니다. 역 내부에서는 층·출구 안내를 확인해주세요.';
-  if (searchedMode === 'route') {
-    $('itineraryMetrics').innerHTML = '<span>전체 이동 <b>'+locker.total+'분</b></span><span>보관 우회 <b>+'+locker.detourMinutes+'분</b></span><span>짐 들고 이동 <b>'+locker.carry+'분</b></span><span>도보 <b>'+locker.walkingMinutes+'분</b></span><span>환승 합계 <b>'+locker.transfers+'회</b></span>';
-    const titles=['출발 → 보관','보관 → 방문','방문 → 회수','회수 → 최종'];
-    $('itineraryLegs').innerHTML='<button type="button" data-leg="all" class="active">전체 동선</button>'+locker.legs.map((leg,i)=>'<button type="button" data-leg="'+i+'">'+(i+1)+'. '+titles[i]+' · '+leg.minutes+'분</button>').join('');
-    drawTransitLegs('all');
-  }
-  mapPins.forEach((pin,i)=>pin.setIcon(L.divIcon({className:'locker-pin-wrapper',html:'<span class="locker-pin '+(i===index?'active':'')+'">'+(i+1)+'</span>',iconSize:[32,38],iconAnchor:[16,35]})));
-  const from = encodeURIComponent(searchedOrigin.name)+','+Number(searchedOrigin.y)+','+Number(searchedOrigin.x);
-  const to = encodeURIComponent(locker.name)+','+locker.coordinates.lat+','+locker.coordinates.lng;
-  $('mapExternalLink').href='https://map.kakao.com/link/by/'+(searchedMode === 'route'?'traffic':'walk')+'/'+from+'/'+to;
-  if (searchedMode !== 'route') map.fitBounds([[Number(searchedOrigin.y),Number(searchedOrigin.x)],[locker.coordinates.lat,locker.coordinates.lng]],{padding:[45,45],maxZoom:17});
-  document.querySelector('.locker-map-shell').scrollIntoView({behavior:'smooth',block:'start'});
-}
-function drawTransitLegs(which) {
-  if (selectedMapIndex===null) return;
-  if (walkingLine) map.removeLayer(walkingLine);
-  const locker=resultLockers[selectedMapIndex];
-  walkingLine=L.featureGroup().addTo(map);
-  const colors=['#2768b0','#278657','#b56822','#8152a3'];
-  const labels=['출발 → 보관함','보관함 → 방문지','방문지 → 보관함 회수','보관함 → 최종 목적지'];
-  const selected=locker.legs.map((leg,index)=>({leg,index})).filter(({index})=>which==='all'||index===Number(which));
-  $('itineraryDetail').innerHTML=selected.map(({leg,index})=>'<section class="transit-leg"><h4 style="color:'+colors[index]+'">'+(index+1)+'. '+labels[index]+' · '+leg.minutes+'분</h4>'+leg.segments.map(s=>'<div class="transit-step"><span class="transit-mode">'+(s.mode==='SUBWAY'?'지하철':s.mode==='BUS'?'버스':'도보')+'</span><div><strong>'+esc(s.guidance)+'</strong><small>'+esc(s.vehicles.join(' · '))+(s.stops.length?' · '+esc(s.stops[0])+' → '+esc(s.stops[s.stops.length-1]):'')+' · '+Math.ceil(s.seconds/60)+'분</small></div></div>').join('')+(leg.segments.length?'':'<p>같은 위치</p>')+'</section>').join('');
-  let missingGeometry=false;
-  selected.forEach(({leg,index})=>leg.segments.forEach(segment=>{
-    if(segment.points.length<2){if(segment.seconds>0) missingGeometry=true;return;}
-    L.polyline(segment.points.map(([lng,lat])=>[lat,lng]),{color:colors[index],weight:segment.mode==='WALKING'?4:6,dashArray:segment.mode==='WALKING'?'7 8':null,opacity:.8}).addTo(walkingLine);
-  }));
-  [[searchedVisit,'방문지'],[searchedEnd,'최종 목적지']].forEach(([p,label])=>{if(p)L.circleMarker([Number(p.y),Number(p.x)],{radius:6,color:'#c17839',fillColor:'#fff',fillOpacity:1,weight:3}).bindTooltip(esc(label+' · '+p.name),{permanent:false}).addTo(walkingLine);});
-  const bounds=walkingLine.getBounds();
-  if(bounds.isValid()) map.fitBounds(bounds,{padding:[40,40],maxZoom:17});
-  $('mapRouteStats').textContent=(which==='all'?'전체 일정 · '+locker.total+'분':labels[Number(which)]+' · '+locker.legs[Number(which)].minutes+'분')+(missingGeometry?' · 일부 구간의 지도 선 정보가 없어요':'');
-  $('itineraryLegs').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.leg===String(which)));
-}
-$('itineraryLegs').onclick=e=>{const button=e.target.closest('[data-leg]');if(button) drawTransitLegs(button.dataset.leg);};
-$('drawWalkingRoute').onclick = async () => {
-  if (selectedMapIndex === null || walkingRequest) return;
-  const locker = resultLockers[selectedMapIndex];
-  const controller = new AbortController(); walkingRequest = controller;
-  $('drawWalkingRoute').disabled = true;
-  $('drawWalkingRoute').textContent = '도보 경로 찾는 중…';
-  $('mapRouteStats').textContent = '실제 보행 경로를 불러오고 있어요.';
-  try {
-    const response = await fetch('/api/walking',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({start:{lat:Number(searchedOrigin.y),lng:Number(searchedOrigin.x)},end:locker.coordinates})});
-    const route = await response.json();
-    if (!response.ok) throw Error(route.error || '경로를 불러오지 못했어요.');
-    if (controller.signal.aborted) return;
-    walkingLine = L.geoJSON(route.geometry,{style:{color:'#235e42',weight:6,opacity:.9}}).addTo(map);
-    map.fitBounds(walkingLine.getBounds(),{padding:[35,35],maxZoom:17});
-    $('mapRouteStats').textContent = '도보 약 '+route.minutes+'분 · '+(route.distance<1000?Math.round(route.distance)+'m':(route.distance/1000).toFixed(1)+'km');
-    const turns = {'left':'왼쪽','right':'오른쪽','slight left':'왼쪽 방향','slight right':'오른쪽 방향','straight':'직진','sharp left':'왼쪽으로 크게','sharp right':'오른쪽으로 크게','uturn':'돌아가기'};
-    $('walkingStepList').innerHTML=route.steps.map(step=>'<li>'+esc(step.type==='arrive'?'보관함 주변 도착':step.type==='depart'?'출발':(turns[step.modifier]||'계속 이동'))+(step.name?' · '+esc(step.name):'')+(step.distance>0?' · '+Math.round(step.distance)+'m':'')+'</li>').join('');
-    $('walkingSteps').hidden = false;
-    $('drawWalkingRoute').textContent = '도보 경로 다시 찾기';
-  } catch(error) {
-    if (error.name==='AbortError') return;
-    $('mapRouteStats').textContent=error.message;
-    $('drawWalkingRoute').textContent='다시 길찾기';
-  } finally {
-    if (walkingRequest===controller) { walkingRequest=null; $('drawWalkingRoute').disabled=false; }
-  }
-};
-$('clearMapRoute').onclick=clearWalking;
-$('showAllPins').onclick=showAllPins;
-$('cards').addEventListener('click',e=>{const button=e.target.closest('[data-directions]');if(button) selectMapLocker(Number(button.dataset.directions));});
-initLockerMap();
 
 // 짐 크기 선택 버튼
 document.querySelectorAll('.size-btn').forEach(btn => {
@@ -435,9 +562,49 @@ document.querySelectorAll('.size-btn').forEach(btn => {
 });
 
 // -------------------------------------------------------------------
-// 3. 최근 경로 (Recent Routes) 관리
+// 5. 최근 경로 (실제 검색한 경로 자동 누적 및 최대 3개 적절 제한)
 // -------------------------------------------------------------------
 const RECENT_KEY = 'oneurui_jim_recent_routes';
+const MAX_RECENT_ROUTES = 3; // 사용자가 요청한 적절한 갯수 제한 (화면 넘침 방지)
+
+let currentCoords = null;
+
+// 📍 현재 위치 GPS 버튼 핸들러
+if ($('geoBtn')) {
+  $('geoBtn').onclick = () => {
+    if (!navigator.geolocation) {
+      alert('사용하시는 브라우저가 위치 정보(GPS)를 지원하지 않습니다.');
+      return;
+    }
+    const btn = $('geoBtn');
+    btn.textContent = '📍 위치 수신 중...';
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        currentCoords = {
+          x: pos.coords.longitude,
+          y: pos.coords.latitude
+        };
+        btn.textContent = '📍 내 위치 확인됨 ✓';
+        btn.disabled = false;
+        btn.style.background = 'var(--primary)';
+        btn.style.color = '#ffffff';
+
+        // 출발 위치 필드에 현재 위치 반영
+        setFieldValue('startSelect', '현재 위치 (GPS)');
+      },
+      err => {
+        btn.textContent = '📍 현재 위치';
+        btn.disabled = false;
+        let msg = '위치 정보를 가져올 수 없습니다.';
+        if (err.code === 1) msg = '브라우저 위치 정보 제공 권한이 차단되었습니다. 주소창 자물쇠 아이콘에서 위치 권한을 허용해주세요.';
+        alert(msg);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  }
+}
 
 function loadRecentRoutes() {
   try {
@@ -449,87 +616,110 @@ function loadRecentRoutes() {
   }
 }
 
-function saveRecentRoute(start, visit, end) {
+function saveRecentRoute(start, visit, end, mode) {
+  if (!start) return;
   const routes = loadRecentRoutes() || [
-    { start: '서울역', visit: '성수', end: '서울역' },
-    { start: '부산역', visit: '해운대', end: '부산역' },
-    { start: '홍대입구', visit: '혜화', end: '홍대입구' }
+    { start: '서울역', visit: '성수', end: '서울역', mode: 'route' },
+    { start: '부산역', visit: '해운대', end: '부산역', mode: 'route' },
+    { start: '홍대입구', visit: '혜화', end: '홍대입구', mode: 'route' }
   ];
 
-  // 중복 제거 후 맨 앞에 추가
-  const filtered = routes.filter(r => !(r.start === start && r.visit === visit && r.end === end));
-  filtered.unshift({ start, visit, end });
-  const trimmed = filtered.slice(0, 4);
+  const filtered = routes.filter(r => !(r.start === start && r.visit === (visit || '') && r.end === (end || start) && r.mode === mode));
+  filtered.unshift({
+    start,
+    visit: visit || '',
+    end: end || start,
+    mode: mode || 'route',
+    time: Date.now()
+  });
 
+  const trimmed = filtered.slice(0, MAX_RECENT_ROUTES);
   localStorage.setItem(RECENT_KEY, JSON.stringify(trimmed));
   renderRecentChips();
 }
 
 function renderRecentChips() {
   const routes = loadRecentRoutes() || [
-    { start: '서울역', visit: '성수', end: '서울역' },
-    { start: '부산역', visit: '해운대', end: '부산역' },
-    { start: '홍대입구', visit: '혜화', end: '홍대입구' }
+    { start: '서울역', visit: '성수', end: '서울역', mode: 'route' },
+    { start: '부산역', visit: '해운대', end: '부산역', mode: 'route' },
+    { start: '홍대입구', visit: '혜화', end: '홍대입구', mode: 'route' }
   ];
 
   const container = $('recentChips');
-  container.innerHTML = routes.map(r => `
-    <button type="button" class="recent-chip" data-start="${r.start}" data-visit="${r.visit}" data-end="${r.end}">
-      ${r.start} → ${r.visit} → ${r.end}
-    </button>
-  `).join('');
+  if (!container) return;
+
+  if (!routes.length) {
+    container.innerHTML = '<span style="font-size:11.5px;color:var(--text-muted);padding:4px 0;">저장된 최근 경로가 없습니다.</span>';
+    return;
+  }
+
+  container.innerHTML = routes.slice(0, MAX_RECENT_ROUTES).map(r => {
+    const isNear = r.mode === 'near';
+    const label = isNear ? `${esc(r.start)} (주변)` : `${esc(r.start)} → ${esc(r.visit || '목적지')} → ${esc(r.end || r.start)}`;
+    return `
+      <button type="button" class="recent-chip" data-start="${esc(r.start)}" data-visit="${esc(r.visit || '')}" data-end="${esc(r.end || r.start)}" data-mode="${r.mode || 'route'}">
+        ${label}
+      </button>
+    `;
+  }).join('');
 
   container.querySelectorAll('.recent-chip').forEach(btn => {
     btn.onclick = () => {
       const s = btn.dataset.start;
       const v = btn.dataset.visit;
       const e = btn.dataset.end;
+      const m = btn.dataset.mode || 'route';
 
-      // 직접 입력 창 열려있으면 초기화
-      document.querySelectorAll('.direct-input-wrap').forEach(w => {
-        w.style.display = 'none';
-        const inp = w.querySelector('input');
-        if (inp) inp.value = '';
-      });
-      document.querySelectorAll('.direct-input-btn').forEach(b => {
-        b.classList.remove('active');
-        b.textContent = '직접 입력';
-      });
-
-      $('startSelect').value = s;
-      $('visitSelect').value = v;
-      $('endSelect').value = (e === s) ? 'SAME_AS_START' : e;
-
-      syncAllCustomSelects();
-
-      setMode('route');
+      setFieldValue('startSelect', s);
+      if (m === 'route') {
+        setFieldValue('visitSelect', v);
+        setFieldValue('endSelect', (e === s) ? 'SAME_AS_START' : e);
+      }
+      setMode(m);
       $('plannerForm').requestSubmit();
     };
   });
 }
 
-renderRecentChips();
+if ($('clearRecentBtn')) {
+  $('clearRecentBtn').onclick = () => {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([]));
+    renderRecentChips();
+  };
+}
 
 // -------------------------------------------------------------------
-// 4. 지역 드롭다운 연동 필터링 (스마트 자동 스크롤)
+// 6. 지역 드롭다운 선택 시 추천 기본역 자동 세팅
 // -------------------------------------------------------------------
-$('regionSelect').onchange = e => {
-  const reg = e.target.value;
+$('regionSelect').addEventListener('change', () => {
+  const reg = getFieldValue('regionSelect');
   if (reg === 'BUSAN') {
-    $('startSelect').value = '부산역';
-    $('visitSelect').value = '해운대';
+    setFieldValue('startSelect', '부산역');
+    setFieldValue('visitSelect', '해운대');
+  } else if (reg === 'DAEGU') {
+    setFieldValue('startSelect', '반월당');
+    setFieldValue('visitSelect', '서문시장');
+  } else if (reg === 'DAEJEON') {
+    setFieldValue('startSelect', '대전역');
+    setFieldValue('visitSelect', '유성온천');
+  } else if (reg === 'GWANGJU') {
+    setFieldValue('startSelect', '광주송정역');
+    setFieldValue('visitSelect', '문화전당');
+  } else if (reg === 'AIRPORT') {
+    setFieldValue('startSelect', '인천공항 제1여객터미널');
+    setFieldValue('visitSelect', '홍대입구');
   } else if (reg === 'RAILWAY') {
-    $('startSelect').value = '동대구역';
-    $('visitSelect').value = '대전역';
+    setFieldValue('startSelect', '동대구역');
+    setFieldValue('visitSelect', '대전역');
   } else if (reg === 'SEOUL') {
-    $('startSelect').value = '서울역';
-    $('visitSelect').value = '성수';
+    setFieldValue('startSelect', '서울역');
+    setFieldValue('visitSelect', '성수');
   }
-  syncAllCustomSelects();
-};
+  updatePricesByRegion();
+});
 
 // -------------------------------------------------------------------
-// 5. Web Crypto API (AES-GCM 256 + PBKDF2) 보안 금고 모듈
+// 7. Web Crypto API (AES-GCM 256 + PBKDF2) 보안 금고 모듈
 // -------------------------------------------------------------------
 const VAULT_STORAGE_KEY = 'oneurui_jim_vault_payload';
 
@@ -574,55 +764,54 @@ function getStoredPayload() {
 function updateVaultBadge() {
   const payload = getStoredPayload();
   const badge = $('activeVaultBadge');
-  if (badge) {
-    if (payload) {
+  const dot = document.querySelector('.vault-dot');
+  const btn = $('openMyLockerBtn');
+
+  if (payload) {
+    const count = payload.count || 1;
+    const countLabel = count > 1 ? ` · ${count}개` : '';
+    if (dot) dot.classList.add('active');
+    if (btn) btn.innerHTML = `<span class="vault-dot active"></span><span>📦 내 보관함 (${esc(payload.stationName)}${countLabel})</span>`;
+    if (badge) {
       badge.style.display = 'inline-flex';
-      badge.textContent = `🔒 ${payload.stationName} 보관 중`;
+      badge.textContent = `🔒 ${payload.stationName}${countLabel} 보관 중`;
       badge.onclick = () => openVaultModal(payload.stationName, payload.location);
-    } else {
-      badge.style.display = 'none';
     }
+  } else {
+    if (dot) dot.classList.remove('active');
+    if (btn) btn.innerHTML = `<span class="vault-dot"></span><span>📦 내 보관함 / 보안 티켓</span>`;
+    if (badge) badge.style.display = 'none';
   }
 }
-updateVaultBadge();
 
 // -------------------------------------------------------------------
-// 6. 보안 모달 열기 및 렌더링
+// 8. 보안 모달 열기 및 렌더링 (다중 보관함 1~4개 각각 안전 저장 및 복호화)
 // -------------------------------------------------------------------
-window.openVaultModal = function(stationName, locationDesc) {
+window.openVaultModal = function(stationName, locationDesc, initialCount = 1) {
   const payload = getStoredPayload();
   const container = $('vaultContent');
 
   if (payload) {
-    // 이미 암호화 티켓이 있는 경우 -> 잠금 해제 화면
+    const savedCount = payload.count || 1;
     container.innerHTML = `
       <div style="background:#f3f6f1;border:1px solid #d4ded0;border-radius:12px;padding:18px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <strong style="color:var(--primary);font-size:13px;">🔒 암호화 안전 보관 중</strong>
+          <strong style="color:var(--primary);font-size:13px;">🔒 암호화 안전 보관 중 (${savedCount}개 보관함)</strong>
           <span style="font-size:11px;color:var(--text-sub);">${new Date(payload.createdAt).toLocaleTimeString('ko-KR')}</span>
         </div>
-        <div style="font-size:13px;margin-bottom:4px;"><strong>보관 역사:</strong> ${payload.stationName}</div>
-        <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;"><strong>위치:</strong> ${payload.location}</div>
+        <div style="font-size:13px;margin-bottom:4px;"><strong>보관 역사:</strong> ${esc(payload.stationName)}</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;"><strong>상세 위치:</strong> ${esc(payload.location || '역사 내 물품보관소')}</div>
 
         <div id="unlockedView" style="display:none;background:#fff;border:1px solid #b7cebf;border-radius:10px;padding:14px;margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <strong style="color:var(--primary);font-size:12px;">PIN 인증 완료</strong>
-            <button type="button" id="toggleMaskBtn" style="background:none;border:0;color:var(--text-sub);font-size:11px;cursor:pointer;text-decoration:underline;">비밀번호 보기</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e2ebe0;">
+            <strong style="color:var(--primary);font-size:12.5px;">✓ PIN 인증 완료 (복호화 성공)</strong>
+            <button type="button" id="toggleMaskBtn" style="background:none;border:0;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;text-decoration:underline;">비밀번호 보기</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <small style="color:var(--text-muted);display:block;font-size:11px;">사물함 번호</small>
-              <h4 id="viewLockerNo" style="margin:2px 0 0;font-size:18px;font-weight:800;"></h4>
-            </div>
-            <div>
-              <small style="color:var(--text-muted);display:block;font-size:11px;">사물함 비밀번호</small>
-              <h4 id="viewPasscode" style="margin:2px 0 0;font-size:18px;font-weight:800;color:var(--accent);">••••••</h4>
-            </div>
-          </div>
+          <div id="unlockedSlotsList" class="unlocked-lockers-list"></div>
         </div>
 
         <form id="unlockForm">
-          <label style="display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:6px;">본인 PIN 번호 입력</label>
+          <label style="display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:6px;">본인 확인 PIN 번호 입력</label>
           <div style="display:flex;gap:8px;">
             <input id="unlockPinInput" type="password" maxlength="6" placeholder="PIN 4~6자리" style="flex:1;background:#fff;border:1px solid var(--border);color:var(--text-main);padding:10px;border-radius:8px;text-align:center;font-weight:700;letter-spacing:4px;" required>
             <button type="submit" class="ticket-action-btn" style="padding:10px 18px;">잠금 해제</button>
@@ -640,6 +829,29 @@ window.openVaultModal = function(stationName, locationDesc) {
     let decryptedData = null;
     let isMasked = true;
 
+    function renderUnlockedSlots() {
+      if (!decryptedData) return;
+      const listEl = $('unlockedSlotsList');
+      const rawLockers = decryptedData.lockers || [
+        { id: 1, lockerNo: decryptedData.lockerNo || '-', passcode: decryptedData.passcode || '----' }
+      ];
+
+      listEl.innerHTML = rawLockers.map((item, idx) => `
+        <div class="unlocked-slot-card">
+          <div class="unlocked-slot-info">
+            <span class="unlocked-slot-title">📦 보관함 #${idx + 1}</span>
+            <span class="unlocked-slot-no">${esc(item.lockerNo || (idx + 1) + '번')}</span>
+          </div>
+          <div class="unlocked-slot-pass">
+            <div class="unlocked-slot-pass-label">비밀번호</div>
+            <div class="unlocked-slot-pass-val" data-idx="${idx}">
+              ${isMasked ? '••••••' : esc(item.passcode)}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
     $('unlockForm').onsubmit = async e => {
       e.preventDefault();
       const pin = $('unlockPinInput').value.trim();
@@ -654,9 +866,8 @@ window.openVaultModal = function(stationName, locationDesc) {
 
         $('unlockForm').style.display = 'none';
         $('unlockedView').style.display = 'block';
-        $('viewLockerNo').textContent = decryptedData.lockerNo;
-        $('viewPasscode').textContent = '••••••';
-      } catch {
+        renderUnlockedSlots();
+      } catch (err) {
         $('unlockError').textContent = 'PIN 번호가 일치하지 않습니다.';
       }
     };
@@ -666,13 +877,12 @@ window.openVaultModal = function(stationName, locationDesc) {
       maskBtn.onclick = () => {
         if (!decryptedData) return;
         isMasked = !isMasked;
-        $('viewPasscode').textContent = isMasked ? '••••••' : decryptedData.passcode;
         maskBtn.textContent = isMasked ? '비밀번호 보기' : '비밀번호 숨기기';
+        renderUnlockedSlots();
       };
     }
 
     $('triggerShredBtn').onclick = async () => {
-      // Crypto-Shredding 실행
       const digest = await sha256(JSON.stringify(payload) + Date.now());
       const noise = buf2b64(window.crypto.getRandomValues(new Uint8Array(128)));
       localStorage.setItem(VAULT_STORAGE_KEY, noise);
@@ -680,9 +890,11 @@ window.openVaultModal = function(stationName, locationDesc) {
       updateVaultBadge();
       $('vaultDialog').close();
 
+      const shredCount = payload.count || 1;
       $('receiptContent').innerHTML = `
         <div style="background:#f4f6f1;border:1px solid #d4ded0;border-radius:12px;padding:16px;font-size:12px;line-height:1.8;">
-          <div>• <strong>이용 역사:</strong> ${payload.stationName}</div>
+          <div>• <strong>이용 역사:</strong> ${esc(payload.stationName)}</div>
+          <div>• <strong>회수 보관함:</strong> 총 ${shredCount}개 사물함 회수 완료</div>
           <div>• <strong>회수 일시:</strong> ${new Date().toLocaleString('ko-KR')}</div>
           <div>• <strong>기기 내 보관 데이터:</strong> <span style="color:var(--primary);font-weight:700;">영구 소거 완료 (기록 없음)</span></div>
           <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #c9d4c4;font-size:10px;color:var(--text-muted);font-family:monospace;">
@@ -694,40 +906,95 @@ window.openVaultModal = function(stationName, locationDesc) {
     };
 
   } else {
-    // 신규 티켓 생성 폼
+    // 신규 티켓 발권 모달: 보관함 개수(1~4개) 선택 및 슬롯별 입력 폼
+    const defaultStation = stationName || getFieldValue('startSelect') || '서울역';
+    const defaultLocation = locationDesc || '역사 내 물품보관소';
+    let currentLockerCount = initialCount || 1;
+
+    function renderLockerInputs(count) {
+      const slotsContainer = $('lockerSlotsContainer');
+      if (!slotsContainer) return;
+
+      let slotsHtml = '';
+      for (let i = 1; i <= count; i++) {
+        const isMulti = count > 1;
+        slotsHtml += `
+          <div class="locker-slot-card">
+            ${isMulti ? `
+              <div class="locker-slot-header">
+                <span class="locker-slot-tag">📦 보관함 #${i}</span>
+                <span style="font-size:11px;color:var(--text-muted);">${i}번째 락커 정보</span>
+              </div>
+            ` : ''}
+            <div class="locker-inputs-grid">
+              <div class="locker-input-field">
+                <label for="inpLockerNo_${i}">${isMulti ? `#${i} 사물함 번호` : '사물함 번호'}</label>
+                <input id="inpLockerNo_${i}" name="lockerNo_${i}" placeholder="예: ${13 + i}번" required>
+              </div>
+              <div class="locker-input-field">
+                <label for="inpPasscode_${i}">${isMulti ? `#${i} 비밀번호` : '사물함 비밀번호'}</label>
+                <input id="inpPasscode_${i}" name="passcode_${i}" placeholder="예: 7294" required>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      slotsContainer.innerHTML = slotsHtml;
+    }
+
     container.innerHTML = `
       <form id="newTicketForm">
-        <div style="background:#f3f6f1;padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:12px;">
-          선택 보관소: <strong>${stationName}</strong> (${locationDesc})
+        <div style="margin-bottom:14px;">
+          <label class="field-label" for="inpStation">보관 역사 및 위치</label>
+          <input id="inpStation" value="${esc(defaultStation)}" placeholder="예: 서울역 1호선, 홍대입구역 9번출구 등" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-weight:700;" required>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-          <div>
-            <label class="field-label">사물함 번호</label>
-            <input id="inpLockerNo" placeholder="예: 14번" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;" required>
+        <!-- 보관함 개수 선택란 (1개, 2개, 3개, 4개) -->
+        <div class="locker-count-group">
+          <div class="locker-count-label">
+            <span>사용한 보관함 개수</span>
+            <span style="font-size:11px;color:var(--primary);font-weight:700;">개수별 번호·비밀번호 개별 저장</span>
           </div>
-          <div>
-            <label class="field-label">사물함 비밀번호</label>
-            <input id="inpPasscode" placeholder="예: 7294" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;" required>
+          <div class="locker-count-selector" id="vaultCountSelector">
+            <button type="button" class="count-pill ${currentLockerCount === 1 ? 'active' : ''}" data-count="1">1개</button>
+            <button type="button" class="count-pill ${currentLockerCount === 2 ? 'active' : ''}" data-count="2">2개</button>
+            <button type="button" class="count-pill ${currentLockerCount === 3 ? 'active' : ''}" data-count="3">3개</button>
+            <button type="button" class="count-pill ${currentLockerCount === 4 ? 'active' : ''}" data-count="4">4개</button>
           </div>
         </div>
+
+        <!-- 동적 생성되는 사물함 번호 & 비밀번호 입력 슬롯들 -->
+        <div id="lockerSlotsContainer" class="locker-slots-container"></div>
 
         <div style="margin-bottom:18px;">
-          <label class="field-label">열람 잠금용 PIN 번호 (4~6자리)</label>
-          <input id="inpPin" type="password" maxlength="6" placeholder="숫자 4~6자리" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;text-align:center;letter-spacing:4px;" required>
+          <label class="field-label" for="inpPin">열람 잠금용 PIN 번호 (4~6자리)</label>
+          <input id="inpPin" type="password" maxlength="6" placeholder="숫자 4~6자리" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-weight:700;text-align:center;letter-spacing:4px;" required>
           <small style="color:var(--text-muted);font-size:11px;display:block;margin-top:4px;">
-            이 PIN으로 기기 내에서만 암호화되며, 다른 사람에게 노출되지 않습니다.
+            이 PIN으로 기기 내(Web Crypto API AES-256)에서만 암호화되며, 서버로 절대 전송되지 않습니다.
           </small>
         </div>
 
-        <button type="submit" class="primary-btn" style="justify-content:center;">안전하게 저장하기</button>
+        <button type="submit" class="primary-btn" style="justify-content:center;width:100%;">기기 내 안전하게 저장하기</button>
       </form>
     `;
 
+    // 보관함 슬롯 초기 렌더링
+    renderLockerInputs(currentLockerCount);
+
+    // 개수 변경 버튼 이벤트
+    const pills = container.querySelectorAll('.count-pill');
+    pills.forEach(pill => {
+      pill.onclick = () => {
+        pills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentLockerCount = parseInt(pill.dataset.count, 10) || 1;
+        renderLockerInputs(currentLockerCount);
+      };
+    });
+
     $('newTicketForm').onsubmit = async e => {
       e.preventDefault();
-      const lockerNo = $('inpLockerNo').value.trim();
-      const passcode = $('inpPasscode').value.trim();
+      const stName = $('inpStation').value.trim() || defaultStation;
       const pin = $('inpPin').value.trim();
 
       if (pin.length < 4) {
@@ -735,16 +1002,45 @@ window.openVaultModal = function(stationName, locationDesc) {
         return;
       }
 
+      // 각 슬롯의 번호와 비밀번호 수집
+      const lockers = [];
+      for (let i = 1; i <= currentLockerCount; i++) {
+        const noEl = $(`inpLockerNo_${i}`);
+        const passEl = $(`inpPasscode_${i}`);
+        const noVal = noEl ? noEl.value.trim() : '';
+        const passVal = passEl ? passEl.value.trim() : '';
+
+        if (!noVal || !passVal) {
+          alert(`보관함 #${i}의 사물함 번호와 비밀번호를 모두 입력해주세요.`);
+          return;
+        }
+
+        lockers.push({
+          id: i,
+          lockerNo: noVal,
+          passcode: passVal
+        });
+      }
+
       const salt = window.crypto.getRandomValues(new Uint8Array(16));
       const iv = window.crypto.getRandomValues(new Uint8Array(12));
       const key = await derivePinKey(pin, salt);
 
-      const plain = JSON.stringify({ lockerNo, passcode, stationName, locationDesc });
+      const plain = JSON.stringify({
+        stationName: stName,
+        locationDesc: defaultLocation,
+        count: lockers.length,
+        lockers,
+        lockerNo: lockers[0].lockerNo,
+        passcode: lockers[0].passcode
+      });
+
       const cipherBuf = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plain));
 
       const payload = {
-        stationName,
-        location: locationDesc,
+        stationName: stName,
+        location: defaultLocation,
+        count: lockers.length,
         cipherText: buf2b64(cipherBuf),
         iv: buf2b64(iv),
         salt: buf2b64(salt),
@@ -753,7 +1049,9 @@ window.openVaultModal = function(stationName, locationDesc) {
 
       localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(payload));
       updateVaultBadge();
-      alert('비밀번호가 기기에 안전하게 저장되었습니다!');
+
+      const lockerSummary = lockers.map(l => l.lockerNo).join(', ');
+      alert(`[${stName}] 보관함 ${lockers.length}개(${lockerSummary}) 정보가 안전하게 암호화 보관되었습니다!\n언제든 상단 [내 보관함] 메뉴에서 PIN으로 확인하실 수 있습니다.`);
       $('vaultDialog').close();
     };
   }
@@ -761,54 +1059,66 @@ window.openVaultModal = function(stationName, locationDesc) {
   $('vaultDialog').showModal();
 };
 
-$('closeVaultDialog').onclick = () => $('vaultDialog').close();
-$('closeReceiptDialog').onclick = () => $('receiptDialog').close();
-$('receiptDoneBtn').onclick = () => $('receiptDialog').close();
+// -------------------------------------------------------------------
+// 8-1. 헤더 모달 버튼(내 보관함, 고객센터, 기획 명세) 및 닫기 이벤트 바인딩
+// -------------------------------------------------------------------
+if ($('openMyLockerBtn')) $('openMyLockerBtn').onclick = () => openVaultModal();
+if ($('closeVaultDialog')) $('closeVaultDialog').onclick = () => $('vaultDialog').close();
+if ($('closeReceiptDialog')) $('closeReceiptDialog').onclick = () => $('receiptDialog').close();
+if ($('receiptDoneBtn')) $('receiptDoneBtn').onclick = () => $('receiptDialog').close();
 
-// 기획 명세 모달
-$('openSpecBtn').onclick = () => $('specDialog').showModal();
-$('closeSpecDialog').onclick = () => $('specDialog').close();
+if ($('openPhoneBtn')) $('openPhoneBtn').onclick = () => $('phoneDialog').showModal();
+if ($('closePhoneDialog')) $('closePhoneDialog').onclick = () => $('phoneDialog').close();
+
+if ($('openSpecBtn')) $('openSpecBtn').onclick = () => $('specDialog').showModal();
+if ($('closeSpecDialog')) $('closeSpecDialog').onclick = () => $('specDialog').close();
+
+// 모달 바깥 어두운 배경(Backdrop) 클릭 시 닫기
+['customDatePickerDialog', 'vaultDialog', 'receiptDialog', 'phoneDialog', 'specDialog'].forEach(id => {
+  const dlg = $(id);
+  if (dlg) {
+    dlg.addEventListener('click', e => {
+      if (e.target === dlg) dlg.close();
+    });
+  }
+});
 
 // -------------------------------------------------------------------
-// 7. 검색 폼 제출 및 최적 결과 렌더링
+// 9. 검색 폼 제출 및 최적 결과 렌더링
 // -------------------------------------------------------------------
 $('plannerForm').onsubmit = async e => {
   e.preventDefault();
   const btn = document.querySelector('.search-button');
   if (btn.disabled) return;
 
-  const regionVal = ($('regionDirectWrap')?.style.display !== 'none' && $('regionDirectInput')?.value.trim())
-    ? $('regionDirectInput').value.trim()
-    : $('regionSelect').value;
+  const regionVal = getFieldValue('regionSelect');
+  const startVal = getFieldValue('startSelect');
+  const visitVal = (currentMode === 'route') ? getFieldValue('visitSelect') : '';
+  let endVal = (currentMode === 'route') ? getFieldValue('endSelect') : startVal;
+  if (endVal === 'SAME_AS_START' || !endVal) {
+    endVal = startVal;
+  }
 
-  const startVal = ($('startDirectWrap')?.style.display !== 'none' && $('startDirectInput')?.value.trim())
-    ? $('startDirectInput').value.trim()
-    : $('startSelect').value;
-
-  const visitVal = ($('visitDirectWrap')?.style.display !== 'none' && $('visitDirectInput')?.value.trim())
-    ? $('visitDirectInput').value.trim()
-    : $('visitSelect').value;
-
-  const endValRaw = ($('endDirectWrap')?.style.display !== 'none' && $('endDirectInput')?.value.trim())
-    ? $('endDirectInput').value.trim()
-    : $('endSelect').value;
-  const endVal = (endValRaw === 'SAME_AS_START') ? startVal : endValRaw;
-
-  let priorityVal = $('priority').value;
-  if ($('priorityDirectWrap')?.style.display !== 'none' && $('priorityDirectInput')?.value.trim()) {
-    const customP = $('priorityDirectInput').value.trim();
-    if (customP.includes('짐') || customP.includes('도보') || customP.includes('무게')) {
-      priorityVal = 'carry';
-    } else {
-      priorityVal = 'total';
-    }
+  let priorityVal = getFieldValue('priority') || 'total';
+  if (priorityVal.includes('짐') || priorityVal.includes('도보') || priorityVal.includes('무게')) {
+    priorityVal = 'carry';
+  } else if (priorityVal !== 'carry') {
+    priorityVal = 'total';
   }
 
   const sizeVal = document.querySelector('.size-btn.active').dataset.size;
   const depositVal = $('deposit').value;
   const pickupVal = $('pickup').value;
 
-  if (currentMode === 'route' && new Date(pickupVal) <= new Date(depositVal)) {
+  if (!startVal) {
+    $('formError').textContent = '출발 위치를 입력하거나 선택해주세요.';
+    return;
+  }
+  if (currentMode === 'route' && !visitVal) {
+    $('formError').textContent = '목적지를 입력하거나 선택해주세요.';
+    return;
+  }
+  if (new Date(pickupVal) <= new Date(depositVal)) {
     $('formError').textContent = '찾을 시각은 맡길 시각 이후로 선택해주세요.';
     return;
   }
@@ -826,9 +1136,12 @@ $('plannerForm').onsubmit = async e => {
     size: sizeVal,
     priority: priorityVal,
     deposit: depositVal,
-    pickup: currentMode === 'route' ? pickupVal : null,
-    ...(currentCoords ? { coords: currentCoords } : {})
+    pickup: pickupVal
   };
+
+  if (currentCoords && (startVal.includes('현재 위치') || startVal.includes('내 위치'))) {
+    q.coords = currentCoords;
+  }
 
   try {
     const r = await fetch('/api/search', {
@@ -839,31 +1152,27 @@ $('plannerForm').onsubmit = async e => {
     const d = await r.json();
     if (!r.ok) throw Error(d.error || '조회 실패');
 
-    // 최근 경로 저장
-    if (currentMode === 'route') {
-      saveRecentRoute(startVal, visitVal, endVal);
-    }
+    saveRecentRoute(startVal, visitVal, endVal, currentMode);
 
     $('emptyGuide').style.display = 'none';
     const displayResults = (d.results || []).slice(0, 7);
-    resultLockers = displayResults;
-    searchedOrigin = d.start;
-    searchedMode = q.mode; searchedVisit = d.visit; searchedEnd = d.end;
-    renderLockerMap();
-    $('journeyGuide').style.display = 'none';
     $('resultsCount').textContent = displayResults.length;
 
     $('summary').style.display = 'block';
     $('summary').innerHTML = `
-      <strong>${currentMode === 'near' ? esc(d.start.name) + '에서 가까운 보관함' : esc(d.start.name) + ' 출발 → ' + esc(d.visit?.name || '목적지') + ' 일정'}</strong>
+      <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} 일정</strong>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-        ${esc(d.note || '보관함 추천 결과입니다.')} ${d.excludedCount ? esc('실제 경로 확인 불가 '+d.excludedCount+'곳 제외') : ''}
+        ${esc(d.note || '이동 편의성과 보관 가능성 상위 7개 보관함 추천 결과입니다.')}
       </div>
     `;
 
     $('cards').innerHTML = displayResults.length
       ? displayResults.map((l, index) => {
           const isBest = index === 0;
+          const agencyContact = l.contact || {
+            tel: l.name.includes('부산') ? '1544-5005' : '1577-1234',
+            agency: l.name.includes('부산') ? '부산교통공사' : (l.name.includes('철도') ? '코레일' : '서울교통공사')
+          };
           return `
             <article class="locker-card ${isBest ? 'selected' : ''}">
               <div class="card-top">
@@ -879,29 +1188,28 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               </div>
 
-              ${l.routeVerified ? '<div class="verified-route">지하철·도보 실제 경로 확인 · 보관 없는 이동 '+l.baselineTotal+'분 대비 우회 +'+l.detourMinutes+'분 · 환승 합계 '+l.transfers+'회</div>' : ''}
               ${l.curfewWarning ? `
                 <div class="curfew-box">
-                  <span>🚨</span>
-                  <span>${esc(l.curfewWarning)}</span>
+                  <span style="font-size:16px;flex-shrink:0;">${l.curfewWarning.includes('⚠️') ? '⚠️' : '🚨'}</span>
+                  <span>${esc(l.curfewWarning.replace(/^(?:🚨|⚠️)\s*/, ''))}</span>
                 </div>
               ` : ''}
 
               <div class="metrics">
                 <div class="metric">
-                  <small>${currentMode === 'near' ? '예상 도보시간' : '전체 이동시간'}</small>
-                  <strong>${formatMinutes(currentMode === 'near' ? l.walkMinutes : l.total)}</strong>
-                  <small class="note">${currentMode === 'near' ? '직선거리 기반 추정 · 실제 경로와 다를 수 있어요' : '출발→보관→방문→회수→최종'}</small>
+                  <small>전체 이동시간</small>
+                  <strong>${formatMinutes(l.total)}</strong>
+                  <small class="note">출발→보관→방문→회수</small>
                 </div>
                 <div class="metric">
-                  <small>${currentMode === 'near' ? '출발 위치와 거리' : '짐 들고 이동'}</small>
-                  <strong style="color:var(--primary);">${currentMode === 'near' ? esc(l.km < 1 ? Math.round(l.km * 1000) + 'm' : l.km.toFixed(1) + 'km') : formatMinutes(l.carry)}</strong>
-                  <small class="note">${currentMode === 'near' ? '직선거리 · 가까운 순' : '실제 짐 부담 시간'}</small>
+                  <small>짐 들고 이동</small>
+                  <strong style="color:var(--primary);">${formatMinutes(l.carry)}</strong>
+                  <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
-                  <small>${l.asOf === '공공데이터 공식 설치수량 기준' ? '설치 칸수' : '이용 가능 칸수'}</small>
+                  <small>설치 칸수</small>
                   <strong>${esc(l.available === null ? '-' : l.available + '칸')}</strong>
-                  <small class="note">${l.asOf === '공공데이터 공식 설치수량 기준' ? '실시간 빈칸 정보는 없어요' : '현장 상황과 다를 수 있어요'}</small>
+                  <small class="note">정직한 총 수량</small>
                 </div>
               </div>
 
@@ -928,16 +1236,18 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               </details>
 
-              <div class="result-actions"><button type="button" class="primary-btn directions-button" data-directions="${index}">${l.routeVerified ? '전체 지하철·회수 동선 보기' : '지도에서 길찾기'}</button>
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;">
+                <a href="tel:${agencyContact.tel}" class="card-phone-pill" title="클릭 시 전화 연결">
+                  📞 문의: ${esc(agencyContact.tel)} (${esc(agencyContact.agency)})
+                </a>
                 <button type="button" class="ticket-action-btn" onclick="openVaultModal('${esc(l.name)}', '${esc(l.location)}')">
-                  🔒 번호·비밀번호 저장
+                  🔒 보관함 번호·비밀번호 안전 보관 (1~4개)
                 </button>
               </div>
             </article>
           `;
         }).join('')
       : '<div class="empty"><h3>조회된 보관함이 없습니다.</h3></div>';
-    document.querySelector('.results-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (err) {
     $('formError').textContent = err.message;
@@ -949,9 +1259,11 @@ $('plannerForm').onsubmit = async e => {
 };
 
 // -------------------------------------------------------------------
-// 8. 초기 시스템 구동 (커스텀 드롭다운 및 직접 입력 토글 시스템)
+// 11. 초기 구동 실행
 // -------------------------------------------------------------------
 initCustomDropdowns();
-initDirectInputToggles();
-
-setMode('near');
+initCustomDatePicker();
+setCurrentTimes();
+updatePricesByRegion();
+renderRecentChips();
+updateVaultBadge();

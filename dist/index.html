@@ -5,18 +5,33 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#214e3b">
   <title>오늘의 짐 — 이동 동선 기반 물품보관함 추천 & 안전 보관</title>
-  <link rel="stylesheet" href="vendor/leaflet.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="header">
-  <a class="brand" href="./">
-    <span class="brand-icon">↘</span>
+  <a class="brand" href="./" id="brandLogoWrap">
+    <span class="brand-icon" id="brandIconContainer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="7" width="14" height="13" rx="3"/>
+        <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>
+        <path d="M5 12h14"/>
+        <circle cx="8" cy="20" r="1" fill="currentColor"/>
+        <circle cx="16" cy="20" r="1" fill="currentColor"/>
+        <path d="M18 3.5c1.5 1 2 2.5 1.5 3.5"/>
+      </svg>
+    </span>
     오늘의 짐
   </a>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <button type="button" id="openSpecBtn" class="badge-tag" style="cursor:pointer;background:#fff;">
-      프로젝트 기획 명세
+  <div class="header-actions">
+    <button type="button" id="openMyLockerBtn" class="header-btn header-vault-btn">
+      <span class="vault-dot"></span>
+      <span id="headerVaultText">📦 내 보관함 / 보안 티켓</span>
+    </button>
+    <button type="button" id="openPhoneBtn" class="header-btn">
+      <span>📞 고객센터</span>
+    </button>
+    <button type="button" id="openSpecBtn" class="header-btn">
+      <span>기획 명세</span>
     </button>
   </div>
 </header>
@@ -32,15 +47,11 @@
     </div>
   </section>
 
-  <section class="nearby-entry" aria-labelledby="nearbyTitle">
-    <div><span class="nearby-eyebrow">무거운 짐, 일단 내려놓으세요</span><h2 id="nearbyTitle">지금 내 주변, 가장 가까운 보관함</h2><p>현재 위치와 짐 크기로 빠르게 찾아요. 찾으러 올 동선은 일정에 맞춰 비교할 수 있어요.</p></div>
-    <div class="nearby-actions"><button type="button" id="locateBtn" class="primary-btn">◎ 내 위치로 가까운 보관함 찾기</button><p id="locationStatus" role="status" aria-live="polite">버튼을 누르면 위치 권한을 요청해요.</p></div>
-  </section>
   <div class="workspace">
     <!-- 왼쪽: 플래너 입력창 -->
     <aside class="planner">
       <div class="mode-switch" role="tablist" aria-label="보관함 검색 방식">
-        <button id="nearTab" role="tab" aria-selected="false">가까운 곳 찾기</button>
+        <button id="nearTab" role="tab" aria-selected="false">바로 맡기기</button>
         <button id="routeTab" role="tab" aria-selected="true" class="active">일정에 맞추기</button>
       </div>
 
@@ -51,19 +62,15 @@
 
       <!-- 최근 경로 칩 목록 -->
       <div class="recent-routes-wrap">
-        <div class="recent-title">
-          <span>🕒 최근 경로</span>
+        <div class="recent-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span>🕒 최근 경로</span>
+            <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(최대 3개 자동 보관)</span>
+          </div>
+          <button type="button" id="clearRecentBtn" style="background:none;border:0;color:var(--text-muted);font-size:10.5px;cursor:pointer;padding:0;text-decoration:underline;">초기화</button>
         </div>
         <div class="recent-chips" id="recentChips">
-          <button type="button" class="recent-chip" data-start="서울역" data-visit="성수" data-end="서울역">
-            서울역 → 성수 → 서울역
-          </button>
-          <button type="button" class="recent-chip" data-start="부산역" data-visit="해운대" data-end="부산역">
-            부산역 → 해운대 → 부산역
-          </button>
-          <button type="button" class="recent-chip" data-start="홍대입구" data-visit="혜화" data-end="홍대입구">
-            홍대입구 → 혜화 → 홍대입구
-          </button>
+          <!-- JS에서 동적으로 렌더링 -->
         </div>
       </div>
 
@@ -72,19 +79,20 @@
         <div class="form-group">
           <div class="field-header">
             <label class="field-label" for="regionSelect">보관함을 찾을 지역</label>
-            <button type="button" class="direct-input-btn" data-target="regionDirectWrap">직접 입력</button>
           </div>
-          <div class="custom-select-wrap">
+          <div class="custom-select-wrap" data-placeholder="지역명 직접 입력 (예: 대전, 광주, 강릉 등)">
             <select id="regionSelect" class="custom-select">
-              <option value="ALL">전국 전체</option>
+              <option value="ALL">전국 전체 (표준 요금)</option>
               <option value="SEOUL" selected>서울·수도권 지하철</option>
-              <option value="BUSAN">부산광역시 도시철도</option>
+              <option value="BUSAN">부산·영남권 도시철도</option>
+              <option value="DAEGU">대구·경북 도시철도</option>
+              <option value="DAEJEON">대전·충청 도시철도</option>
+              <option value="GWANGJU">광주·호남 도시철도</option>
+              <option value="AIRPORT">전국 주요 공항 (인천/김포/김해/제주)</option>
               <option value="RAILWAY">전국 KTX·SRT 고속철도역</option>
+              <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
             </select>
             <span class="custom-select-arrow">▼</span>
-          </div>
-          <div id="regionDirectWrap" class="direct-input-wrap" style="display:none;">
-            <input type="text" id="regionDirectInput" class="direct-text-input" placeholder="지역 또는 도시명 직접 입력 (예: 대전, 광주, 강릉 등)">
           </div>
         </div>
 
@@ -92,9 +100,9 @@
         <div class="form-group">
           <div class="field-header">
             <label class="field-label" for="startSelect">출발 위치</label>
-            <button type="button" class="direct-input-btn" data-target="startDirectWrap">직접 입력</button>
+            <button type="button" id="geoBtn" class="now-btn" title="GPS로 현재 내 위치 찾기">📍 현재 위치</button>
           </div>
-          <div class="custom-select-wrap">
+          <div class="custom-select-wrap" data-placeholder="출발역 또는 장소명 직접 입력 (예: 판교역, 수원역, 건대입구)">
             <select id="startSelect" class="custom-select" required>
               <optgroup label="서울·수도권 주요 역">
                 <option value="서울역" selected>서울역 (1·4호선/KTX/공항철도)</option>
@@ -118,30 +126,56 @@
                 <option value="광안">광안역 (부산2호선 광안리)</option>
                 <option value="남포">남포역 (부산1호선 자갈치/BIFF)</option>
               </optgroup>
-              <optgroup label="전국 KTX·철도 거점">
-                <option value="동대구역">동대구역 (KTX/SRT)</option>
-                <option value="대전역">대전역 (KTX/SRT)</option>
-                <option value="광주송정역">광주송정역 (KTX/SRT)</option>
-                <option value="수서역">수서역 (SRT/3호선)</option>
+              <optgroup label="대구·경북 도시철도">
+                <option value="반월당">반월당역 (대구 1·2호선 환승)</option>
+                <option value="중앙로">중앙로역 (대구 1호선 동성로)</option>
+                <option value="동대구역">동대구역 (도시철도/KTX)</option>
+                <option value="서문시장">서문시장역 (대구 3호선)</option>
               </optgroup>
+              <optgroup label="대전·충청 도시철도">
+                <option value="대전역">대전역 (대전 1호선/KTX)</option>
+                <option value="유성온천">유성온천역 (대전 1호선)</option>
+                <option value="서대전">서대전네거리역 (대전 1호선)</option>
+                <option value="정부청사">정부청사역 (대전 1호선)</option>
+              </optgroup>
+              <optgroup label="광주·호남 도시철도">
+                <option value="광주송정역">광주송정역 (광주 1호선/KTX)</option>
+                <option value="문화전당">문화전당역 (광주 1호선 ACC)</option>
+                <option value="금남로">금남로4가역 (광주 1호선)</option>
+                <option value="상무">상무역 (광주 1호선 상무지구)</option>
+              </optgroup>
+              <optgroup label="전국 주요 공항">
+                <option value="인천공항 제1여객터미널">인천공항 제1여객터미널 (공항철도 T1)</option>
+                <option value="인천공항 제2여객터미널">인천공항 제2여객터미널 (공항철도 T2)</option>
+                <option value="김포공항">김포공항역 (5·9호선/공항철도)</option>
+                <option value="김해공항">김해국제공항 (부산김해경전철)</option>
+                <option value="제주공항">제주국제공항 (여객청사 1층)</option>
+              </optgroup>
+              <optgroup label="전국 KTX·SRT 고속철도">
+                <option value="동대구역">동대구역 (경부선 KTX/SRT)</option>
+                <option value="대전역">대전역 (경부선 KTX/SRT)</option>
+                <option value="광주송정역">광주송정역 (호남선 KTX/SRT)</option>
+                <option value="천안아산역">천안아산역 (KTX/SRT)</option>
+                <option value="오송역">오송역 (경부·호남선 KTX)</option>
+                <option value="익산역">익산역 (호남·전라선 KTX)</option>
+                <option value="강릉역">강릉역 (강릉선 KTX)</option>
+                <option value="여수엑스포">여수엑스포역 (전라선 KTX)</option>
+                <option value="순천역">순천역 (전라선 KTX)</option>
+                <option value="수서역">수서역 (SRT 시종착)</option>
+              </optgroup>
+              <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
             </select>
             <span class="custom-select-arrow">▼</span>
-          </div>
-          <div id="startDirectWrap" class="direct-input-wrap" style="display:none;">
-            <input type="text" id="startDirectInput" class="direct-text-input" placeholder="출발역 또는 장소명 직접 입력 (예: 판교역, 수원역, 건대입구)">
           </div>
         </div>
 
         <div id="routeFields">
-          <div class="route-connector"></div>
-
-          <!-- 3. 방문지 (짐 없이 갈 곳) 드롭다운 -->
+          <!-- 3. 목적지 (짐 맡길 곳) 드롭다운 (작은 막대기 제거 완료) -->
           <div class="form-group">
             <div class="field-header">
-              <label class="field-label" for="visitSelect">방문지 (짐 없이 갈 곳)</label>
-              <button type="button" class="direct-input-btn" data-target="visitDirectWrap">직접 입력</button>
+              <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
             </div>
-            <div class="custom-select-wrap">
+            <div class="custom-select-wrap" data-placeholder="목적지 또는 방문 장소 직접 입력 (예: 코엑스, 광화문, 벡스코)">
               <select id="visitSelect" class="custom-select" required>
                 <optgroup label="서울·수도권 주요 일정지">
                   <option value="성수" selected>성수역 (연무장길 카페거리)</option>
@@ -162,23 +196,18 @@
                   <option value="남포">남포역 (자갈치시장/국제시장)</option>
                   <option value="부산역">부산역 (부산역 광장)</option>
                 </optgroup>
+                <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
               </select>
               <span class="custom-select-arrow">▼</span>
             </div>
-            <div id="visitDirectWrap" class="direct-input-wrap" style="display:none;">
-              <input type="text" id="visitDirectInput" class="direct-text-input" placeholder="목적지 또는 방문 장소 직접 입력 (예: 코엑스, 광화문, 벡스코)">
-            </div>
           </div>
 
-          <div class="route-connector"></div>
-
-          <!-- 4. 최종 목적지 (짐을 찾고 마지막으로 갈 곳) 드롭다운 -->
+          <!-- 4. 최종 목적지 (짐을 찾고 마지막으로 갈 곳) 드롭다운 (작은 막대기 제거 완료) -->
           <div class="form-group">
             <div class="field-header">
               <label class="field-label" for="endSelect">최종 목적지 (짐을 찾고 마지막으로 갈 곳)</label>
-              <button type="button" class="direct-input-btn" data-target="endDirectWrap">직접 입력</button>
             </div>
-            <div class="custom-select-wrap">
+            <div class="custom-select-wrap" data-placeholder="귀가역 또는 최종 목적지 직접 입력 (예: 인천공항, 김포공항, 수서역)">
               <select id="endSelect" class="custom-select" required>
                 <option value="SAME_AS_START" selected>출발지와 동일 (출발역으로 복귀/귀가)</option>
                 <optgroup label="서울 주요 귀가/이동역">
@@ -189,47 +218,59 @@
                   <option value="고속터미널">고속터미널역</option>
                   <option value="수서역">수서역 (SRT)</option>
                 </optgroup>
-                <optgroup label="부산/지역 귀가역">
+                <optgroup label="부산/영남권 귀가역">
                   <option value="부산역">부산역</option>
                   <option value="서면">서면역</option>
                   <option value="사상">사상역 (서부버스터미널)</option>
+                  <option value="동대구역">동대구역 (대구 KTX)</option>
                 </optgroup>
+                <optgroup label="충청/호남권 귀가역">
+                  <option value="대전역">대전역</option>
+                  <option value="오송역">오송역</option>
+                  <option value="광주송정역">광주송정역</option>
+                  <option value="익산역">익산역</option>
+                </optgroup>
+                <optgroup label="전국 공항 귀가/출국">
+                  <option value="인천공항 제1여객터미널">인천공항 T1</option>
+                  <option value="인천공항 제2여객터미널">인천공항 T2</option>
+                  <option value="김포공항">김포공항역</option>
+                  <option value="김해공항">김해공항</option>
+                  <option value="제주공항">제주공항</option>
+                </optgroup>
+                <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
               </select>
               <span class="custom-select-arrow">▼</span>
-            </div>
-            <div id="endDirectWrap" class="direct-input-wrap" style="display:none;">
-              <input type="text" id="endDirectInput" class="direct-text-input" placeholder="귀가역 또는 최종 목적지 직접 입력 (예: 인천공항, 김포공항, 수서역)">
             </div>
           </div>
         </div>
 
-        <!-- 짐 크기 선택 -->
-        <div class="form-group" style="margin-top:20px;">
-          <div class="field-label">
-            <span>짐 크기</span>
-            <small style="color:var(--text-muted);font-weight:400;">정직한 총 설치 칸수 기준</small>
+        <!-- 짐 크기 선택 (지역별 가격 자동 연동) -->
+        <div class="form-group">
+          <div class="field-header">
+            <label class="field-label">짐 크기</label>
+            <span id="regionPriceNotice" style="font-size:11px;color:var(--primary);font-weight:700;">수도권 기준</span>
           </div>
           <div class="size-options" role="group">
             <button type="button" class="size-btn" data-size="S">
               <strong>작은 가방</strong>
               <small>소형 (서류·백팩)</small>
-              <span class="price">4시간 2,200원</span>
+              <span class="price" id="priceS">4시간 2,200원</span>
             </button>
             <button type="button" class="size-btn active" data-size="M" aria-pressed="true">
               <strong>기내용 캐리어</strong>
               <small>중형 (20인치)</small>
-              <span class="price">4시간 3,300원</span>
+              <span class="price" id="priceM">4시간 3,300원</span>
             </button>
             <button type="button" class="size-btn" data-size="L">
               <strong>대형 캐리어</strong>
               <small>대형 (24인치+)</small>
-              <span class="price">4시간 4,400원</span>
+              <span class="price" id="priceL">4시간 4,400원</span>
             </button>
           </div>
         </div>
 
-        <!-- 보관 시각 및 찾을 시각 -->
-        <div class="form-group" style="margin-top:20px;">
+        <!-- 보관 시각 및 찾을 시각 (맞춤 포레스트 그린 피커 연동) -->
+        <div class="form-group">
           <div class="time-group-header">
             <span class="field-label" style="margin:0;">보관 및 회수 시각</span>
             <button type="button" id="nowTimeBtn" class="now-btn">현재 시각</button>
@@ -237,29 +278,37 @@
           <div class="date-fields">
             <div class="date-input-wrap">
               <span class="date-sub-label">맡길 시각</span>
-              <input id="deposit" type="datetime-local" title="맡길 시각" required>
+              <button type="button" id="depositBtn" class="custom-date-trigger">
+                <span class="date-icon">📅</span>
+                <span id="depositDisplay" class="date-display-text">2026. 10. 20 (화) 오후 08:00</span>
+                <span class="date-arrow">▼</span>
+              </button>
+              <input id="deposit" type="hidden" required>
             </div>
             <div class="date-input-wrap">
               <span class="date-sub-label">찾을 시각</span>
-              <input id="pickup" type="datetime-local" title="찾을 시각" required>
+              <button type="button" id="pickupBtn" class="custom-date-trigger">
+                <span class="date-icon">🕒</span>
+                <span id="pickupDisplay" class="date-display-text">2026. 10. 21 (수) 오전 12:00</span>
+                <span class="date-arrow">▼</span>
+              </button>
+              <input id="pickup" type="hidden" required>
             </div>
           </div>
         </div>
 
-        <div id="priorityField" class="form-group" style="margin-top:14px;">
+        <!-- 추천 정렬 기준 -->
+        <div id="priorityField" class="form-group">
           <div class="field-header">
             <label class="field-label" for="priority">추천 정렬 기준</label>
-            <button type="button" class="direct-input-btn" data-target="priorityDirectWrap">직접 입력</button>
           </div>
-          <div class="custom-select-wrap">
+          <div class="custom-select-wrap" data-placeholder="정렬 키워드 직접 입력 (예: 짐 최소, 이동시간 최소 등)">
             <select id="priority" class="custom-select">
               <option value="total" selected>전체 이동시간(우회 손실) 최소</option>
               <option value="carry">짐 들고 이동하는 시간 최소</option>
+              <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
             </select>
             <span class="custom-select-arrow">▼</span>
-          </div>
-          <div id="priorityDirectWrap" class="direct-input-wrap" style="display:none;">
-            <input type="text" id="priorityDirectInput" class="direct-text-input" placeholder="정렬 키워드 직접 입력 (예: 짐 최소, 이동시간 최소 등)">
           </div>
         </div>
 
@@ -278,27 +327,11 @@
         <div>
           <h2>추천 보관함 <span id="resultsCount">0</span></h2>
         </div>
-        <div id="activeVaultBadge" class="active-vault-pill" style="display:none;">
+        <div id="activeVaultBadge" class="active-vault-pill" style="display:none;cursor:pointer;">
           🔒 보관 중 티켓 확인
         </div>
       </div>
 
-      <section class="locker-map-shell" aria-label="보관함 지도">
-        <div class="locker-map-heading"><div><span class="nearby-eyebrow">오늘의 짐 · 주변 지도</span><h3>짐 둘 곳, 지도에서 찾아요</h3></div><button type="button" id="showAllPins">전체 핀 보기</button></div>
-        <div id="lockerMap" aria-label="출발 위치와 보관함 지도"></div>
-        <p id="mapStatus" role="status" aria-live="polite">검색하면 출발 위치와 보관함이 지도에 표시돼요.</p>
-        <div id="mapSelection" hidden>
-          <div class="map-selection-title"><div><span id="mapLockerTag">보관함</span><h3 id="mapLockerName"></h3></div><button type="button" id="clearMapRoute">경로 지우기</button></div>
-          <p id="mapLockerLocation"></p>
-          <div id="mapRouteStats" role="status" aria-live="polite"></div>
-          <section id="itineraryPanel" hidden><div id="itineraryMetrics"></div><p class="itinerary-note">출발 → 보관 → 방문 → 회수 → 최종 목적지</p><div id="itineraryLegs"></div><div id="itineraryDetail"></div><small>실제 경로 API 기준 · 입력한 미래 시각의 시간표나 막차를 보장하지 않아요. 역사 내부 이동은 추가로 고려해주세요.</small></section>
-          <button type="button" id="drawWalkingRoute" class="primary-btn">이 지도에서 도보 길찾기 →</button>
-          <small id="mapRoutingPrivacy">길찾기를 누르면 출발·도착 좌표가 OSM 경로 서비스로 전달됩니다. 역 내부에서는 층·출구 안내를 확인해주세요.</small>
-          <details id="walkingSteps" hidden><summary>도보 이동 안내</summary><ol id="walkingStepList"></ol></details>
-          <a id="mapExternalLink" target="_blank" rel="noopener noreferrer">카카오맵에서 이어보기 ↗</a>
-        </div>
-        <div class="map-credit">지도 © OpenStreetMap · 도보 경로 OSRM / FOSSGIS · <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer">지도 수정 제안</a></div>
-      </section>
       <div id="emptyGuide" class="empty">
         <h3>어디로 이동하시나요?</h3>
         <p>왼쪽에서 출발 위치와 목적지를 선택하시면 전체 이동 손실을 계산해 드립니다.</p>
@@ -307,19 +340,103 @@
       <div id="summary" class="summary" style="display:none;background:var(--surface-sub);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:12px;color:var(--text-sub);"></div>
 
       <div id="cards" class="cards" aria-live="polite"></div>
-      <div id="journeyGuide" class="journey-guide"><span>1 <b>위치 선택</b></span><i>→</i><span>2 <b>보관함 비교</b></span><i>→</i><span>3 <b>길찾기</b></span></div>
-      <div class="preview-example"><strong>누르면 어떤 화면이 나오나요?</strong><p>서울역 주변을 예로 들어 검색 결과를 미리 확인할 수 있어요.</p><button type="button" id="exampleBtn">서울역 주변 결과 미리보기 →</button><small>예시 위치를 사용하며, 내 위치를 수집하지 않아요.</small></div>
     </section>
   </div>
-
-  <footer>
-    <span style="font-weight:700;color:var(--primary);">오늘의 짐</span>
-  </footer>
 </main>
 
-<!-- 보안 티켓 금고 모달 (Web Crypto API AES-GCM) -->
+<!-- 맞춤 포레스트 그린 날짜 및 시각 선택 모달 (자유로운 날짜·1분 단위 지정 & 4면 완벽 라운딩) -->
+<dialog id="customDatePickerDialog">
+  <div class="dialog-scroll-wrap">
+    <div class="dialog-heading">
+      <h2 id="dtPickerModalTitle" style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;margin:0;">📅 짐 맡길 시각 선택</h2>
+      <button class="close-btn" id="closeDtPickerBtn">×</button>
+    </div>
+    <p style="margin:2px 0 16px;font-size:12px;color:var(--text-sub);">
+      빠른 버튼으로 간편하게 고르거나, 달력과 시·분 입력창으로 원하는 일시를 1분 단위까지 자유롭게 지정하세요.
+    </p>
+
+    <div class="dt-modal-body">
+      <!-- 1. 날짜 선택 섹션 -->
+      <div class="dt-section">
+        <div class="dt-section-title">
+          <span>📅 날짜 선택</span>
+          <span style="font-size:11px;color:var(--primary);font-weight:700;">달력에서 모든 날짜 지정 가능</span>
+        </div>
+        <!-- 빠른 날짜 버튼 -->
+        <div class="dt-pill-group" id="dtQuickDateGroup" style="margin-bottom:10px;">
+          <button type="button" class="dt-pill active" data-days="0">오늘</button>
+          <button type="button" class="dt-pill" data-days="1">내일</button>
+          <button type="button" class="dt-pill" data-days="2">모레</button>
+          <button type="button" class="dt-pill" data-days="7">1주일 뒤</button>
+        </div>
+        <!-- 달력 직접 지정 인풋 -->
+        <div class="dt-native-date-wrap">
+          <input type="date" id="dtNativeDateInput" class="dt-native-date-input" aria-label="날짜 선택">
+        </div>
+      </div>
+
+      <!-- 2. 시각 선택 섹션 (시·분 직접 입력 & 스텝퍼) -->
+      <div class="dt-section">
+        <div class="dt-section-title">
+          <span>⏰ 시각 지정</span>
+          <span style="font-size:11px;color:var(--primary);font-weight:700;">1분 단위 자유 조절 및 직접 입력</span>
+        </div>
+
+        <div class="dt-time-stepper-box">
+          <!-- 시 (Hour) -->
+          <div class="dt-stepper-unit">
+            <span class="dt-stepper-label">시 (Hour)</span>
+            <div class="dt-stepper-control">
+              <button type="button" class="dt-step-btn" id="hourStepDown" title="1시간 감소">−</button>
+              <input type="number" id="dtInputHour" min="0" max="23" value="14" class="dt-time-number-input" aria-label="시간">
+              <button type="button" class="dt-step-btn" id="hourStepUp" title="1시간 증가">+</button>
+            </div>
+            <span style="font-size:10px;color:var(--text-muted);">00 ~ 23시</span>
+          </div>
+
+          <div class="dt-time-colon">:</div>
+
+          <!-- 분 (Minute) -->
+          <div class="dt-stepper-unit">
+            <span class="dt-stepper-label">분 (Minute)</span>
+            <div class="dt-stepper-control">
+              <button type="button" class="dt-step-btn" id="minStepDown" title="1분 감소">−</button>
+              <input type="number" id="dtInputMinute" min="0" max="59" value="00" class="dt-time-number-input" aria-label="분">
+              <button type="button" class="dt-step-btn" id="minStepUp" title="1분 증가">+</button>
+            </div>
+            <span style="font-size:10px;color:var(--text-muted);">00 ~ 59분</span>
+          </div>
+        </div>
+
+        <!-- 빠른 시간 선택 칩 -->
+        <div>
+          <span style="display:block;font-size:11px;color:var(--text-sub);margin-bottom:6px;font-weight:700;">빠른 시간 간편 맞춤</span>
+          <div class="dt-pill-group" id="dtQuickTimeGroup">
+            <button type="button" class="dt-pill" data-quick="now">지금 현재</button>
+            <button type="button" class="dt-pill" data-quick="plus1">+1시간</button>
+            <button type="button" class="dt-pill" data-quick="plus2">+2시간</button>
+            <button type="button" class="dt-pill" data-quick="plus4">+4시간</button>
+            <button type="button" class="dt-pill" data-quick="min00">:00 정각</button>
+            <button type="button" class="dt-pill" data-quick="min30">:30분</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 실시간 확인 바 & 적용 완료 버튼 -->
+      <div class="dt-confirm-bar">
+        <div>
+          <small style="font-size:10.5px;color:var(--text-muted);display:block;">선택된 일시</small>
+          <strong id="dtPreviewText" style="color:var(--primary);font-size:15px;letter-spacing:-0.2px;"></strong>
+        </div>
+        <button type="button" class="primary-btn" id="dtApplyBtn" style="width:auto;margin:0;padding:10px 22px;font-size:13.5px;">선택 완료</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- 보안 티켓 금고 모달 (다중 보관함 지원 Web Crypto API AES-GCM) -->
 <dialog id="vaultDialog">
-  <div class="dialog-heading">
+  <div class="dialog-scroll-wrap"><div class="dialog-heading">
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:20px;">🔒</span>
       <h2 style="font-size:18px;font-weight:800;">기기 내 안전 암호화 티켓</h2>
@@ -330,11 +447,12 @@
     서버로 전송되지 않으며, 브라우저 내부에서 본인 PIN 번호로 안전하게 암호화 보관됩니다.
   </p>
   <div id="vaultContent"></div>
+  </div>
 </dialog>
 
 <!-- 파기 완료 보안 영수증 모달 -->
 <dialog id="receiptDialog">
-  <div class="dialog-heading">
+  <div class="dialog-scroll-wrap"><div class="dialog-heading">
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:20px;">✓</span>
       <h2 style="font-size:18px;font-weight:800;">짐 회수 완료</h2>
@@ -346,11 +464,93 @@
   </p>
   <div id="receiptContent"></div>
   <button type="button" class="primary-btn" id="receiptDoneBtn" style="margin-top:16px;justify-content:center;">확인</button>
+  </div>
+</dialog>
+
+<!-- 지역별 고객센터 안내 모달 -->
+<dialog id="phoneDialog">
+  <div class="dialog-scroll-wrap"><div class="dialog-heading">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:20px;">📞</span>
+      <h2 style="font-size:18px;font-weight:800;">지역별 보관함 고객센터 안내</h2>
+    </div>
+    <button class="close-btn" id="closePhoneDialog">×</button>
+  </div>
+  <p style="margin:4px 0 16px;font-size:12px;color:var(--text-sub);">
+    사물함 오류, 비밀번호 분실, 심야 셔터 마감 등 비상시 즉시 연결 가능한 공식 대표번호입니다.
+  </p>
+  <div class="phone-list-container">
+    <div class="phone-card">
+      <div class="phone-badge green">수도권 지하철</div>
+      <div class="phone-details">
+        <strong>서울교통공사 또타라커 고객센터</strong>
+        <div class="phone-number"><a href="tel:1577-1234">1577-1234</a> <span style="font-size:11px;color:var(--text-muted);">(ARS 3번 / 02-6110-2114)</span></div>
+        <small>서울 지하철 유실물센터: 02-6110-1122 · 역사 역무실 비상 개방</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge blue">부산 도시철도</div>
+      <div class="phone-details">
+        <strong>부산교통공사 물품보관함 콜센터</strong>
+        <div class="phone-number"><a href="tel:1544-5005">1544-5005</a> / <a href="tel:051-640-7538">051-640-7538</a></div>
+        <small>부산 도시철도 1~4호선 역사 보관함 운영 및 장애 지원</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge" style="background:#e8f4fd;color:#0369a1;border:1px solid #bae6fd;">대구 도시철도</div>
+      <div class="phone-details">
+        <strong>대구교통공사 고객상담센터</strong>
+        <div class="phone-number"><a href="tel:053-643-2114">053-643-2114</a></div>
+        <small>대구 도시철도 1~3호선 역사 물품보관함 및 유실물센터</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;">대전 도시철도</div>
+      <div class="phone-details">
+        <strong>대전교통공사 고객센터</strong>
+        <div class="phone-number"><a href="tel:042-539-3114">042-539-3114</a></div>
+        <small>대전 도시철도 1호선 역사 물품보관함 및 종합상황실</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge" style="background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe;">광주 도시철도</div>
+      <div class="phone-details">
+        <strong>광주교통공사 고객콜센터</strong>
+        <div class="phone-number"><a href="tel:062-604-8000">062-604-8000</a></div>
+        <small>광주 도시철도 1호선 역사 물품보관함 및 역무 지원</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge" style="background:#e0f2fe;color:#0284c7;border:1px solid #7dd3fc;">전국 주요 공항</div>
+      <div class="phone-details">
+        <strong>인천국제공항공사 / 한국공항공사</strong>
+        <div class="phone-number"><a href="tel:1577-2600">1577-2600</a> (인천공항) / <a href="tel:1661-2626">1661-2626</a> (김포·김해·제주)</div>
+        <small>전국 공항 터미널 수하물 보관소 및 24시간 보관 안내</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge orange">전국 KTX·SRT</div>
+      <div class="phone-details">
+        <strong>코레일 / SR 고속철도 고객센터</strong>
+        <div class="phone-number"><a href="tel:1544-7788">1544-7788</a> (코레일) / <a href="tel:1800-1472">1800-1472</a> (SRT)</div>
+        <small>전국 KTX·일반철도 및 SRT 역사 물품보관소 연계</small>
+      </div>
+    </div>
+    <div class="phone-card">
+      <div class="phone-badge gray">전국 공영/지자체</div>
+      <div class="phone-details">
+        <strong>정부 지자체 통합 민원콜센터</strong>
+        <div class="phone-number"><a href="tel:120">120</a> <span style="font-size:11px;color:var(--text-muted);">(지역번호 + 120)</span></div>
+        <small>전국 지자체 공영 물품보관소 및 다산콜센터</small>
+      </div>
+    </div>
+  </div>
+  </div>
 </dialog>
 
 <!-- 기획 명세 모달 -->
 <dialog id="specDialog">
-  <div class="dialog-heading">
+  <div class="dialog-scroll-wrap"><div class="dialog-heading">
     <h2 style="font-size:18px;font-weight:800;">「오늘의 짐」 프로젝트 기획 명세</h2>
     <button class="close-btn" id="closeSpecDialog">×</button>
   </div>
@@ -361,9 +561,9 @@
     <p><strong>4. 이상조건 탐지 (과목 4):</strong> 심야 역사 셔터 폐쇄(24:00) 짐 감금 위험 자동 탐지 및 사전 경고.</p>
     <p><strong>5. 자동화·보고서 (과목 5):</strong> 만차 대비 플랜 B 대안 보관함 매칭 및 회수 완료 시 난수 덮어쓰기 영구 파기(Crypto-Shredding), SHA-256 검증 영수증 발행.</p>
   </div>
+  </div>
 </dialog>
 
-<script src="vendor/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

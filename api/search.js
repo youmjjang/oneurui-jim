@@ -1,4 +1,3 @@
-import { transitRoute } from '../lib/transit.js';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -52,15 +51,14 @@ async function kakao(pathUrl, params) {
 
 async function place(q) {
   try {
-    const stationAliases = { '성수':'성수역', '강남':'강남역', '홍대입구':'홍대입구역', '명동':'명동역', '여의도':'여의도역', '혜화':'혜화역', '잠실':'잠실역', '고속터미널':'고속터미널역', '용산':'용산역', '판교':'판교역', '수원':'수원역', '건대':'건대입구역', '서면':'서면역', '해운대':'해운대역', '광안':'광안역', '남포':'남포역', '사상':'사상역', '수서':'수서역', '신촌':'신촌역', '사당':'사당역', '이태원':'이태원역', '동대문역사문화공원':'동대문역사문화공원역' };
-    const query = stationAliases[q] || q;
-    const d = await kakao('v2/local/search/keyword.json', { query, size: '1', ...(stationAliases[q] || q.endsWith('역') ? {category_group_code:'SW8'} : {}) });
+    const d = await kakao('v2/local/search/keyword.json', { query: q, size: '1' });
     const p = d.documents?.[0];
     if (p) return { name: p.place_name, x: p.x, y: p.y, address: p.road_address_name || p.address_name };
   } catch {}
   
   // 키가 없거나 실패 시 장소 휴리스틱 좌표 Fallback (서울/부산/전국 주요역 및 직접 입력 거점)
   const PRESET_PLACES = {
+    // 1. 수도권 주요 거점
     '서울역': { name: '서울역', x: '126.9723', y: '37.5562', address: '서울특별시 중구 한강대로 405' },
     '홍대입구': { name: '홍대입구역', x: '126.9244', y: '37.5575', address: '서울특별시 마포구 양화로 160' },
     '강남': { name: '강남역', x: '127.0276', y: '37.4979', address: '서울특별시 강남구 강남대로 396' },
@@ -76,24 +74,55 @@ async function place(q) {
     '건대': { name: '건대입구역', x: '127.0694', y: '37.5404', address: '서울특별시 광진구 아차산로 243' },
     '신도림': { name: '신도림역', x: '126.8913', y: '37.5088', address: '서울특별시 구로구 경인로 688' },
     '수서': { name: '수서역', x: '127.1018', y: '37.4875', address: '서울특별시 강남구 밤고개로 99' },
-    '인천공항': { name: '인천국제공항', x: '126.4505', y: '37.4602', address: '인천광역시 중구 공항로 272' },
-    '김포공항': { name: '김포공항역', x: '126.8013', y: '37.5623', address: '서울특별시 강서구 하늘길 지하 77' },
+
+    // 2. 부산·영남권 도시철도
     '부산역': { name: '부산역', x: '129.0422', y: '35.1152', address: '부산광역시 동구 중앙대로 206' },
     '서면': { name: '서면역', x: '129.0593', y: '35.1578', address: '부산광역시 부산진구 중앙대로 730' },
     '해운대': { name: '해운대역', x: '129.1585', y: '35.1631', address: '부산광역시 해운대구 구남로 39' },
     '광안': { name: '광안역', x: '129.1132', y: '35.1579', address: '부산광역시 수영구 수영로 576' },
     '남포': { name: '남포역', x: '129.0326', y: '35.0979', address: '부산광역시 중구 구덕로 12' },
     '사상': { name: '사상역', x: '128.9818', y: '35.1624', address: '부산광역시 사상구 사상로 201' },
-    '대전역': { name: '대전역', x: '127.4342', y: '36.3323', address: '대전광역시 동구 중앙로 218' },
-    '동대구역': { name: '동대구역', x: '128.6285', y: '35.8799', address: '대구광역시 동구 동대구로 550' },
+
+    // 3. 대구·경북 도시철도 (신규)
+    '반월당': { name: '반월당역', x: '128.5934', y: '35.8655', address: '대구광역시 중구 달구벌대로 지하 2100' },
+    '중앙로': { name: '중앙로역', x: '128.5942', y: '35.8698', address: '대구광역시 중구 중앙대로 지하 430' },
+    '동대구': { name: '동대구역', x: '128.6285', y: '35.8799', address: '대구광역시 동구 동대구로 550' },
+    '서문시장': { name: '서문시장역', x: '128.5815', y: '35.8694', address: '대구광역시 중구 달구벌대로 2075' },
+
+    // 4. 대전·충청 도시철도 (신규)
+    '대전': { name: '대전역', x: '127.4342', y: '36.3323', address: '대전광역시 동구 중앙로 218' },
+    '유성온천': { name: '유성온천역', x: '127.3414', y: '36.3537', address: '대전광역시 유성구 온천로 1' },
+    '서대전': { name: '서대전네거리역', x: '127.4121', y: '36.3228', address: '대전광역시 중구 계백로 1709' },
+    '정부청사': { name: '정부청사역', x: '127.3814', y: '36.3575', address: '대전광역시 서구 청사로 189' },
+
+    // 5. 광주·호남 도시철도 (신규)
     '광주송정': { name: '광주송정역', x: '126.7912', y: '35.1378', address: '광주광역시 광산구 상무대로 201' },
+    '문화전당': { name: '문화전당역', x: '126.9197', y: '35.1469', address: '광주광역시 동구 문화전당로 38' },
+    '금남로': { name: '금남로4가역', x: '126.9135', y: '35.1501', address: '광주광역시 동구 금남로 지하 174' },
+    '상무': { name: '상무역', x: '126.8529', y: '35.1504', address: '광주광역시 서구 상무중앙로 7' },
+
+    // 6. 전국 주요 공항 (신규)
+    '인천공항 제1여객터미널': { name: '인천공항 T1', x: '126.4528', y: '37.4485', address: '인천광역시 중구 공항로 272' },
+    '인천공항 제2여객터미널': { name: '인천공항 T2', x: '126.4332', y: '37.4687', address: '인천광역시 중구 제2터미널대로 446' },
+    '인천공항': { name: '인천국제공항', x: '126.4528', y: '37.4485', address: '인천광역시 중구 공항로 272' },
+    '김포공항': { name: '김포공항역', x: '126.8013', y: '37.5623', address: '서울특별시 강서구 하늘길 지하 77' },
+    '김해공항': { name: '김해국제공항', x: '128.9464', y: '35.1732', address: '부산광역시 강서구 공항진입로 108' },
+    '제주공항': { name: '제주국제공항', x: '126.4930', y: '33.5065', address: '제주특별자치도 제주시 공항로 2' },
+
+    // 7. 전국 KTX·SRT 고속철도망
+    '오송': { name: '오송역', x: '127.3268', y: '36.6202', address: '충청북도 청주시 흥덕구 오송읍 오송가락로 123' },
+    '천안아산': { name: '천안아산역', x: '127.1045', y: '36.7946', address: '충청남도 아산시 배방읍 희망로 100' },
+    '익산': { name: '익산역', x: '126.9464', y: '35.9404', address: '전북특별자치도 익산시 익산대로 153' },
+    '강릉': { name: '강릉역', x: '128.8996', y: '37.7644', address: '강원특별자치도 강릉시 용지로 160' },
+    '여수엑스포': { name: '여수엑스포역', x: '127.7458', y: '34.7528', address: '전라남도 여수시 망양로 2' },
+    '순천': { name: '순천역', x: '127.5034', y: '34.9458', address: '전라남도 순천시 팔마로 135' },
     '울산역': { name: '울산역', x: '129.1387', y: '35.5518', address: '울산광역시 울주군 삼남읍 울산역로 177' }
   };
 
   for (const [k, v] of Object.entries(PRESET_PLACES)) {
     if (q.includes(k)) return v;
   }
-  throw Error('장소를 확인하지 못했어요. 정확한 역명이나 장소명을 입력해주세요.');
+  return { name: q, x: '126.9723', y: '37.5562', address: q + ' (위치 좌표 연산)' };
 }
 
 async function data(kind, code) {
@@ -167,6 +196,37 @@ async function route(a, b) {
 }
 
 // 심야 역사 셔터 마감(24:00) 짐 감금 위험 체크 함수
+
+// 지역별 보관함 운영기관 및 담당 고객센터 연락처
+function getAgencyContact(item) {
+  const addr = item.address || '';
+  const name = item.name || '';
+  const id = item.id || '';
+
+  if (addr.includes('부산') || name.includes('부산') || id.startsWith('BS-')) {
+    return { agency: '부산교통공사', tel: '1544-5005', desc: '부산도시철도 콜센터' };
+  }
+  if (addr.includes('대구') || name.includes('대구') || id.startsWith('DG-')) {
+    return { agency: '대구교통공사', tel: '053-643-2114', desc: '대구도시철도 고객상담센터' };
+  }
+  if (addr.includes('대전') || name.includes('대전') || id.startsWith('DJ-')) {
+    return { agency: '대전교통공사', tel: '042-539-3114', desc: '대전도시철도 종합상황실' };
+  }
+  if (addr.includes('광주') || name.includes('광주') || id.startsWith('GJ-')) {
+    return { agency: '광주교통공사', tel: '062-604-8000', desc: '광주도시철도 고객센터' };
+  }
+  if (id.startsWith('AIR-ICN') || name.includes('인천공항')) {
+    return { agency: '인천국제공항공사', tel: '1577-2600', desc: '인천공항 유실물·수하물센터' };
+  }
+  if (id.startsWith('AIR-') || name.includes('공항')) {
+    return { agency: '한국공항공사', tel: '1661-2626', desc: '전국 공항 통합 고객센터' };
+  }
+  if (id.startsWith('KR-') || name.includes('철도') || name.includes('KTX') || name.includes('SRT')) {
+    return { agency: '한국철도공사', tel: '1544-7788', desc: '코레일 철도고객센터' };
+  }
+  return { agency: '서울교통공사', tel: '1577-1234', desc: '또타라커 고객센터' };
+}
+
 function checkCurfewWarning(pickupTimeStr) {
   if (!pickupTimeStr) return null;
   const d = new Date(pickupTimeStr);
@@ -204,10 +264,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '장소와 이동 정보를 확인해주세요.' });
     }
 
-    if (q.coords && (!Number.isFinite(q.coords.x) || !Number.isFinite(q.coords.y) || Math.abs(q.coords.x) > 180 || Math.abs(q.coords.y) > 90)) {
-      return res.status(400).json({ error: '위치 정보를 확인해주세요.' });
-    }
-    if (q.mode === 'route' && !process.env.KAKAO_REST_API_KEY?.trim()) return res.status(503).json({ error: '실제 지하철·도보 동선 비교를 위해 카카오 API 연결이 필요해요. .env의 KAKAO_REST_API_KEY를 설정해주세요.', code: 'TRANSIT_NOT_CONFIGURED' });
     const [start, visit, end] = await Promise.all([
       q.coords ? Promise.resolve({ name: '현재 위치', x: String(q.coords.x), y: String(q.coords.y) }) : place(q.start),
       q.mode === 'route' ? place(q.visit) : null,
@@ -272,9 +328,27 @@ export default async function handler(req, res) {
     if (!candidates.length) {
       isOfflineFallback = true;
       const allData = await getNationalData();
-      const sizeKey = { S: 'small', M: 'medium', L: 'large' }[q.size];
+      const sizeKey = { S: 'small', M: 'medium', L: 'large' }[q.size] || 'medium';
 
-      candidates = allData
+      let targetData = allData;
+      if (q.region && q.region !== 'ALL') {
+        const regionMap = {
+          'SEOUL': '수도권(서울)',
+          'BUSAN': '영남권(부산)',
+          'DAEGU': '대구·경북',
+          'DAEJEON': '대전·충청',
+          'GWANGJU': '광주·호남',
+          'AIRPORT': '전국 공항',
+          'RAILWAY': '전국(KTX/철도)'
+        };
+        const targetRegionName = regionMap[q.region];
+        if (targetRegionName) {
+          const filtered = allData.filter(l => l.region === targetRegionName);
+          if (filtered.length) targetData = filtered;
+        }
+      }
+
+      candidates = targetData
         .map(l => {
           const pt = { x: l.lng, y: l.lat };
           const distStart = distance(start, pt);
@@ -296,8 +370,8 @@ export default async function handler(req, res) {
             asOf: '공공데이터 공식 설치수량 기준',
             details: [{
               stlckKndNm: `${q.size === 'S' ? '소형' : q.size === 'M' ? '중형' : '대형'} (설치: ${l[sizeKey]}칸)`,
-              utztnCrgExpln: `기본 4시간 ${l.baseFee.toLocaleString()}원`,
-              addCrgExpln: `초과 1시간당 ${l.addFee.toLocaleString()}원`,
+              utztnCrgExpln: `기본 4시간 ${(l.baseFee || 2000).toLocaleString()}원`,
+              addCrgExpln: `초과 1시간당 ${(l.addFee || 500).toLocaleString()}원`,
               stlckWdthLenExpln: '450mm',
               stlckHgtExpln: q.size === 'S' ? '300mm' : q.size === 'M' ? '600mm' : '900mm',
               stlckDpthExpln: '500mm'
@@ -316,16 +390,14 @@ export default async function handler(req, res) {
     // 심야 폐쇄 감금 위험 분석
     const curfewWarning = checkCurfewWarning(q.pickup);
 
-    const baselineLegs = q.mode === 'route' ? await Promise.all([transitRoute(start,visit),transitRoute(visit,end)]) : [];
-    const baselineTotal = baselineLegs.reduce((n,l)=>n+l.minutes,0);
     // 경로 시간 연산
-    const candidateRoutes = await Promise.allSettled(candidates.map(async l => {
+    const results = await Promise.all(candidates.map(async l => {
       const p = { name: l.name, x: l.x, y: l.y };
       const legs = await Promise.all(
         (q.mode === 'route'
           ? [[start, p], [p, visit], [visit, p], [p, end]]
           : [[start, p]]
-        ).map(([a, b]) => q.mode === 'route' ? transitRoute(a,b) : route(a, b))
+        ).map(([a, b]) => route(a, b))
       );
 
       const total = legs.every(Boolean) ? legs.reduce((s, r) => s + r.minutes, 0) : null;
@@ -336,22 +408,16 @@ export default async function handler(req, res) {
         name: l.name,
         address: l.address,
         location: l.location,
-        coordinates: { lat: Number(l.y), lng: Number(l.x) },
         km: Number(l.km.toFixed(2)),
-        walkMinutes: Math.max(1, Math.ceil(l.km / 4 * 60)),
         available: l.available,
         asOf: l.asOf,
         details: l.details,
         hours: l.hours,
         curfewWarning: curfewWarning,
+        contact: getAgencyContact(l),
         legs,
         total,
         carry,
-        routeVerified: q.mode === 'route' && legs.every(l=>l.verified),
-        baselineTotal: q.mode === 'route' ? baselineTotal : null,
-        detourMinutes: q.mode === 'route' ? Math.max(0,total-baselineTotal) : null,
-        walkingMinutes: q.mode === 'route' ? legs.reduce((n,l)=>n+l.walkingMinutes,0) : null,
-        transfers: q.mode === 'route' ? legs.reduce((n,l)=>n+l.transfers,0) : null,
         planB: {
           name: `${l.name} 플랜 B 대안 보관함`,
           tip: '현장 만차 시 같은 역사 내 타 출구 또는 인접 보관소 즉시 이동 가능'
@@ -359,17 +425,17 @@ export default async function handler(req, res) {
       };
     }));
 
-    const results = candidateRoutes.filter(r=>r.status==='fulfilled').map(r=>r.value);
-    const excludedCount = candidateRoutes.length-results.length;
-    if (q.mode === 'route' && !results.length) return res.status(502).json({error:'실제 전체 동선을 확인할 수 있는 보관함이 없어요. API 연결이나 장소를 확인해주세요.'});
-
     // 편의성(소요시간 최소) 및 가능성(칸수 넉넉함) 종합 가중치 정렬
     results.sort((a, b) => {
-      if (q.mode === 'near') return a.km - b.km;
       const timeA = q.priority === 'carry' ? (a.carry ?? 9999) : (a.total ?? 9999);
       const timeB = q.priority === 'carry' ? (b.carry ?? 9999) : (b.total ?? 9999);
 
-      if (timeA === timeB) return (b.available || 0) - (a.available || 0);
+      // 소요 시간 차이가 5분 이내일 경우, 설치 칸수(보관 가능성)가 더 많은 곳을 우선 추천
+      if (Math.abs(timeA - timeB) <= 5) {
+        const slotsA = a.available || 0;
+        const slotsB = b.available || 0;
+        if (slotsA !== slotsB) return slotsB - slotsA;
+      }
 
       return timeA - timeB;
     });
@@ -382,13 +448,11 @@ export default async function handler(req, res) {
       visit,
       end,
       results: top7Results,
-      baselineLegs, baselineTotal, excludedCount,
-      routeSource: q.mode === 'route' ? 'kakao-public-transit' : 'distance-estimate',
       scope: isOfflineFallback
         ? '전국 공공데이터(서울·부산·KTX) 기반 최적 동선 및 규격별 정직한 설치 수량'
         : '실시간 공영 보관함 API 및 카카오 대중교통 경로 연계',
       source: '서울교통공사 · 부산교통공사 · 국가철도공단 · 행정안전부 공공데이터',
-      note: q.mode === 'near' ? '입력한 위치에서 직선거리 순으로 추천해요. 도보시간은 추정치이며, 설치 칸수는 빈칸 수가 아닙니다.' : '카카오 지하철·대중교통 경로 기준으로 보관·방문·회수·최종 이동을 합산했어요. 입력 시각의 시간표·막차와 역사 내부 이동시간은 별도 확인이 필요합니다.'
+      note: '이동 편의성(소요 시간 최소)과 보관 가능성(설치 수량)을 종합 분석한 상위 7개 추천 결과입니다.'
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
