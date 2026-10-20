@@ -3,191 +3,264 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#214e42">
-  <title>오늘의 짐 — 전국 지하철·철도 물품보관함 동선 비교 & 암호화 티켓</title>
+  <meta name="theme-color" content="#214e3b">
+  <title>오늘의 짐 — 이동 동선 기반 물품보관함 추천 & 안전 보관</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    /* 추가 확장 스타일 */
-    .badge-wrap { display: flex; gap: 6px; align-items: center; }
-    .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
-    .badge-green { background: #e3eddf; color: #35583b; border: 1px solid #c1d6bd; }
-    .badge-amber { background: #fdf3d8; color: #8a641a; border: 1px solid #ebd39b; }
-    .badge-red { background: #fde8e4; color: #a82e1e; border: 1px solid #f5b8ae; }
-    .curfew-alert { background: #fff1ef; border: 1px solid #f8c2b8; border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 11px; color: #a12b1b; font-weight: 600; }
-    .plan-b-box { background: #f9fbf7; border: 1px dashed #cad4c5; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 11px; color: #52634d; }
-    .ticket-btn { background: #285847; color: white; border: 0; border-radius: 7px; padding: 9px 14px; font-weight: 700; font-size: 11px; margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
-    .ticket-btn:hover { background: #1c4235; }
-    .vault-status-box { background: #1a2f26; color: white; border-radius: 12px; padding: 18px; margin: 14px 0; }
-    .shred-btn { background: #c24130; color: white; border: 0; border-radius: 7px; padding: 10px 16px; font-weight: 700; font-size: 11px; }
-    .shred-btn:hover { background: #a33223; }
-    .receipt-box { font-family: monospace; background: #f4f6f2; border: 1px solid #d5ded1; border-radius: 10px; padding: 16px; font-size: 11px; margin: 14px 0; }
-    .data-download-card { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line); background: white; border-radius: 9px; padding: 12px 14px; font-size: 11px; }
-    .data-download-card:hover { border-color: #547b5e; background: #f8faf6; }
-  </style>
 </head>
 <body>
 <header class="header">
   <a class="brand" href="./">
     <span class="brand-icon">↘</span>
     오늘의 짐
-    <span class="beta">전국 확장판</span>
   </a>
-  <div class="badge-wrap">
-    <span class="badge badge-green">Zero-Log Web Crypto AES-GCM</span>
-    <button type="button" id="openSpecBtn" class="secondary" style="padding:6px 12px;font-size:11px;font-weight:700;">기획·기술 명세서</button>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button type="button" id="openSpecBtn" class="badge-tag" style="cursor:pointer;background:#fff;">
+      프로젝트 기획 명세
+    </button>
   </div>
 </header>
+
 <main>
   <section class="intro">
     <div>
       <div class="eyebrow">LESS BAGGAGE, MORE POSSIBILITIES</div>
       <h1>짐은 잠깐,<br class="mobile-break"> 하루는 가볍게.</h1>
       <p>
-        수도권 지하철부터 부산 도시철도, 전국 KTX 철도역까지.<br class="mobile-break">
-        <strong>짐을 맡기고 되찾아오는 전체 동선 손실(우회 시간)</strong>을 계산하고 비밀번호는 브라우저 암호화 금고로 지킵니다.
+        가까운 곳에 무작정 넣었다가 되찾으러 역주행하지 마세요.<br class="mobile-break">
+        <strong>목적지에 갔다가 짐을 찾으러 오는 전체 동선 손실</strong>을 계산해 가장 편한 보관함을 찾아드립니다.
       </p>
-    </div>
-    <div class="intro-art" aria-hidden="true">
-      <span class="art-ring"></span>
-      <div class="suitcase"><span></span><i></i><b></b></div>
-      <span class="spark">✳</span>
-      <span class="art-caption">오늘은 두 손 가볍게</span>
     </div>
   </section>
 
   <div class="workspace">
+    <!-- 왼쪽: 플래너 입력창 -->
     <aside class="planner">
       <div class="mode-switch" role="tablist" aria-label="보관함 검색 방식">
-        <button id="nearTab" role="tab" aria-selected="true" aria-controls="plannerForm" class="active">바로 맡기기</button>
-        <button id="routeTab" role="tab" aria-selected="false" aria-controls="plannerForm">일정에 맞추기</button>
+        <button id="nearTab" role="tab" aria-selected="false">바로 맡기기</button>
+        <button id="routeTab" role="tab" aria-selected="true" class="active">일정에 맞추기</button>
       </div>
 
       <div class="planner-heading">
-        <span class="step-label" id="modeEyebrow">NEAR ME</span>
-        <h2 id="modeTitle">일단, 짐부터 내려놓을까요?</h2>
-        <p id="modeDescription">출발지에서 가까운 보관함을 비교해요.</p>
+        <h2 id="modeTitle">찾으러 갈 때까지, 편하게.</h2>
+        <p id="modeDescription">방문과 짐 회수 동선을 함께 비교해요.</p>
       </div>
 
-      <!-- 추천 시연 프리셋 칩 -->
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;">
-        <span style="font-size:10px;color:#8a9688;line-height:22px;">빠른 시연:</span>
-        <button type="button" id="presetSeoul" class="secondary" style="padding:4px 8px;font-size:10px;">서울: 서울역→성수</button>
-        <button type="button" id="presetBusan" class="secondary" style="padding:4px 8px;font-size:10px;">부산: 부산역→해운대</button>
-        <button type="button" id="presetNight" class="secondary" style="padding:4px 8px;font-size:10px;">심야: 홍대→혜화</button>
+      <!-- 최근 경로 칩 목록 -->
+      <div class="recent-routes-wrap">
+        <div class="recent-title">
+          <span>🕒 최근 경로</span>
+        </div>
+        <div class="recent-chips" id="recentChips">
+          <button type="button" class="recent-chip" data-start="서울역" data-visit="성수" data-end="서울역">
+            서울역 → 성수 → 서울역
+          </button>
+          <button type="button" class="recent-chip" data-start="부산역" data-visit="해운대" data-end="부산역">
+            부산역 → 해운대 → 부산역
+          </button>
+          <button type="button" class="recent-chip" data-start="홍대입구" data-visit="혜화" data-end="홍대입구">
+            홍대입구 → 혜화 → 홍대입구
+          </button>
+        </div>
       </div>
 
       <form id="plannerForm">
-        <label class="field-label" for="region">보관함을 찾을 지역</label>
-        <input id="region" placeholder="예: 서울, 부산 해운대구 · 비워두면 출발지 기준" autocomplete="address-level2">
-
-        <button type="button" id="locateButton" class="secondary full" style="margin:14px 0">◎ 현재 위치에서 찾기</button>
-
-        <label class="field-label" for="start">출발 위치</label>
-        <div class="place-field">
-          <span class="field-dot green"></span>
-          <input id="start" aria-label="출발 위치" placeholder="예: 서울역, 홍대입구역, 부산역" autocomplete="off" required>
-        </div>
-
-        <div id="routeFields" hidden>
-          <div class="connector"></div>
-          <label class="field-label" for="visit">짐 없이 방문할 곳 (목적지)</label>
-          <div class="place-field">
-            <span class="field-dot coral"></span>
-            <input id="visit" aria-label="방문할 장소" placeholder="예: 성수역 카페거리, 해운대해수욕장" autocomplete="off">
-          </div>
-          <div class="connector"></div>
-          <label class="field-label" for="end">짐을 찾고 마지막으로 갈 곳 (귀가역)</label>
-          <div class="place-field">
-            <span class="field-dot dark"></span>
-            <input id="end" aria-label="최종 목적지" placeholder="예: 서울역, 서면역" autocomplete="off">
+        <!-- 1. 보관함을 찾을 지역 (드롭다운) -->
+        <div class="form-group">
+          <label class="field-label" for="regionSelect">보관함을 찾을 지역</label>
+          <div class="custom-select-wrap">
+            <select id="regionSelect" class="custom-select">
+              <option value="ALL">전국 전체</option>
+              <option value="SEOUL" selected>서울·수도권 지하철</option>
+              <option value="BUSAN">부산광역시 도시철도</option>
+              <option value="RAILWAY">전국 KTX·SRT 고속철도역</option>
+            </select>
+            <span class="custom-select-arrow">▼</span>
           </div>
         </div>
 
-        <div class="field-label size-label">짐 크기 (정직한 규격별 설치 안내) <button type="button" id="sizeHelp" class="inline-button">규격 보기 ⓘ</button></div>
-        <div class="size-options" role="group" aria-label="짐 크기">
-          <button type="button" data-size="S"><span>▣</span><strong>작은 가방</strong><small>소형(2,200원)</small></button>
-          <button type="button" data-size="M" class="active" aria-pressed="true"><span>▥</span><strong>기내용 캐리어</strong><small>중형(3,300원)</small></button>
-          <button type="button" data-size="L"><span>▥</span><strong>큰 캐리어</strong><small>대형(4,400원)</small></button>
+        <!-- 2. 출발 위치 (드롭다운) -->
+        <div class="form-group">
+          <label class="field-label" for="startSelect">출발 위치</label>
+          <div class="custom-select-wrap">
+            <select id="startSelect" class="custom-select" required>
+              <optgroup label="서울·수도권 주요 역">
+                <option value="서울역" selected>서울역 (1·4호선/KTX/공항철도)</option>
+                <option value="홍대입구">홍대입구역 (2호선/경의중앙/공항철도)</option>
+                <option value="강남">강남역 (2호선/신분당선)</option>
+                <option value="성수">성수역 (2호선 카페거리)</option>
+                <option value="명동">명동역 (4호선)</option>
+                <option value="여의도">여의도역 (5·9호선/더현대)</option>
+                <option value="고속터미널">고속터미널역 (3·7·9호선)</option>
+                <option value="잠실">잠실역 (2·8호선/롯데월드몰)</option>
+                <option value="용산">용산역 (1호선/경의중앙/KTX)</option>
+                <option value="신촌">신촌역 (2호선)</option>
+                <option value="혜화">혜화역 (4호선 대학로)</option>
+                <option value="동대문역사문화공원">동대문역사문화공원역 (2·4·5호선)</option>
+                <option value="사당">사당역 (2·4호선)</option>
+              </optgroup>
+              <optgroup label="부산 도시철도 주요 역">
+                <option value="부산역">부산역 (부산1호선/KTX)</option>
+                <option value="서면">서면역 (부산1·2호선 환승)</option>
+                <option value="해운대">해운대역 (부산2호선 해수욕장)</option>
+                <option value="광안">광안역 (부산2호선 광안리)</option>
+                <option value="남포">남포역 (부산1호선 자갈치/BIFF)</option>
+              </optgroup>
+              <optgroup label="전국 KTX·철도 거점">
+                <option value="동대구역">동대구역 (KTX/SRT)</option>
+                <option value="대전역">대전역 (KTX/SRT)</option>
+                <option value="광주송정역">광주송정역 (KTX/SRT)</option>
+                <option value="수서역">수서역 (SRT/3호선)</option>
+              </optgroup>
+            </select>
+            <span class="custom-select-arrow">▼</span>
+          </div>
         </div>
 
-        <div class="date-fields">
-          <div><label for="deposit" class="field-label">맡길 시각</label><input id="deposit" type="datetime-local" required></div>
-          <div><label for="pickup" class="field-label">찾을 시각 (심야 감금 검사)</label><input id="pickup" type="datetime-local" required></div>
+        <div id="routeFields">
+          <div class="route-connector"></div>
+
+          <!-- 3. 목적지 (짐 맡길 곳) 드롭다운 -->
+          <div class="form-group">
+            <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
+            <div class="custom-select-wrap">
+              <select id="visitSelect" class="custom-select" required>
+                <optgroup label="서울·수도권 주요 일정지">
+                  <option value="성수" selected>성수역 (연무장길 카페거리)</option>
+                  <option value="명동">명동역 (명동 메인스트리트/쇼핑)</option>
+                  <option value="여의도">여의도역 (IFC몰/더현대서울)</option>
+                  <option value="혜화">혜화역 (대학로 공연장)</option>
+                  <option value="홍대입구">홍대입구역 (연남동/상권)</option>
+                  <option value="강남">강남역 (강남대로/약속)</option>
+                  <option value="고속터미널">고속터미널역 (신세계/센트럴)</option>
+                  <option value="잠실">잠실역 (롯데월드/쇼핑몰)</option>
+                  <option value="이태원">이태원역 (다이닝/관광)</option>
+                  <option value="서울역">서울역 (도심 중심부)</option>
+                </optgroup>
+                <optgroup label="부산 주요 일정지">
+                  <option value="해운대">해운대역 (해운대 해수욕장)</option>
+                  <option value="서면">서면역 (서면1번가/젊음의거리)</option>
+                  <option value="광안">광안역 (광안리해변 카페)</option>
+                  <option value="남포">남포역 (자갈치시장/국제시장)</option>
+                  <option value="부산역">부산역 (부산역 광장)</option>
+                </optgroup>
+              </select>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+          </div>
+
+          <div class="route-connector"></div>
+
+          <!-- 4. 최종 목적지 (짐을 찾고 마지막으로 갈 곳) 드롭다운 -->
+          <div class="form-group">
+            <label class="field-label" for="endSelect">최종 목적지 (짐을 찾고 마지막으로 갈 곳)</label>
+            <div class="custom-select-wrap">
+              <select id="endSelect" class="custom-select" required>
+                <option value="SAME_AS_START" selected>출발지와 동일 (출발역으로 복귀/귀가)</option>
+                <optgroup label="서울 주요 귀가/이동역">
+                  <option value="서울역">서울역</option>
+                  <option value="용산">용산역</option>
+                  <option value="홍대입구">홍대입구역</option>
+                  <option value="강남">강남역</option>
+                  <option value="고속터미널">고속터미널역</option>
+                  <option value="수서역">수서역 (SRT)</option>
+                </optgroup>
+                <optgroup label="부산/지역 귀가역">
+                  <option value="부산역">부산역</option>
+                  <option value="서면">서면역</option>
+                  <option value="사상">사상역 (서부버스터미널)</option>
+                </optgroup>
+              </select>
+              <span class="custom-select-arrow">▼</span>
+            </div>
+          </div>
         </div>
 
-        <div id="priorityField" hidden>
-          <label class="field-label" for="priority">내가 더 중요하게 생각하는 건</label>
-          <select id="priority">
-            <option value="total">전체 이동시간(우회 손실) 줄이기</option>
-            <option value="carry">짐 들고 이동하는 시간 줄이기</option>
-          </select>
+        <!-- 짐 크기 선택 -->
+        <div class="form-group" style="margin-top:20px;">
+          <div class="field-label">
+            <span>짐 크기</span>
+            <small style="color:var(--text-muted);font-weight:400;">정직한 총 설치 칸수 기준</small>
+          </div>
+          <div class="size-options" role="group">
+            <button type="button" class="size-btn" data-size="S">
+              <strong>작은 가방</strong>
+              <small>소형 (서류·백팩)</small>
+              <span class="price">4시간 2,200원</span>
+            </button>
+            <button type="button" class="size-btn active" data-size="M" aria-pressed="true">
+              <strong>기내용 캐리어</strong>
+              <small>중형 (20인치)</small>
+              <span class="price">4시간 3,300원</span>
+            </button>
+            <button type="button" class="size-btn" data-size="L">
+              <strong>대형 캐리어</strong>
+              <small>대형 (24인치+)</small>
+              <span class="price">4시간 4,400원</span>
+            </button>
+          </div>
         </div>
 
-        <p id="formError" class="error" role="alert"></p>
-        <button type="submit" class="primary search-button">
-          <span id="searchText">가까운 보관함 찾기</span><span>→</span>
+        <!-- 보관 시각 및 찾을 시각 -->
+        <div class="form-group" style="margin-top:20px;">
+          <div class="time-group-header">
+            <span class="field-label" style="margin:0;">보관 및 회수 시각</span>
+            <button type="button" id="nowTimeBtn" class="now-btn">현재 시각</button>
+          </div>
+          <div class="date-fields">
+            <div>
+              <input id="deposit" type="datetime-local" title="맡길 시각" required>
+            </div>
+            <div>
+              <input id="pickup" type="datetime-local" title="찾을 시각" required>
+            </div>
+          </div>
+        </div>
+
+        <div id="priorityField" class="form-group" style="margin-top:14px;">
+          <label class="field-label" for="priority">추천 정렬 기준</label>
+          <div class="custom-select-wrap">
+            <select id="priority" class="custom-select">
+              <option value="total" selected>전체 이동시간(우회 손실) 최소</option>
+              <option value="carry">짐 들고 이동하는 시간 최소</option>
+            </select>
+            <span class="custom-select-arrow">▼</span>
+          </div>
+        </div>
+
+        <p id="formError" class="error" style="color:var(--danger-text);font-size:12px;margin:8px 0;"></p>
+
+        <button type="submit" class="primary-btn search-button">
+          <span id="searchText">최적 보관함 추천받기</span>
+          <span>→</span>
         </button>
       </form>
     </aside>
 
+    <!-- 오른쪽: 결과 리스트 영역 -->
     <section class="results-area" aria-label="보관함 검색 결과">
-      <div class="empty" id="mapPlaceholder">
-        <h3>어디에 짐을 맡길까요?</h3>
-        <p>지역과 출발지를 입력해 전국 공공 보관함과 최적 동선을 검색하세요.</p>
-      </div>
-
       <div class="results-heading">
         <div>
-          <span class="step-label">YOUR LIGHTER DAY</span>
-          <h2 id="resultsTitle">가까운 보관함 <span>0</span></h2>
+          <h2>추천 보관함 <span id="resultsCount">0</span></h2>
         </div>
-        <button class="compare-toggle" id="activeVaultBadge" style="display:none;background:#285847;color:white;font-weight:700;">
-          🔒 보관 중 티켓 1건
-        </button>
+        <div id="activeVaultBadge" class="active-vault-pill" style="display:none;">
+          🔒 보관 중 티켓 확인
+        </div>
       </div>
 
-      <div id="summary" class="summary"></div>
+      <div id="emptyGuide" class="empty">
+        <h3>어디로 이동하시나요?</h3>
+        <p>왼쪽에서 출발 위치와 목적지를 선택하시면 전체 이동 손실을 계산해 드립니다.</p>
+      </div>
+
+      <div id="summary" class="summary" style="display:none;background:var(--surface-sub);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:12px;color:var(--text-sub);"></div>
+
       <div id="cards" class="cards" aria-live="polite"></div>
-
-      <!-- 공공데이터 파일 다운로드 센터 -->
-      <div style="background:white;border:1px solid var(--line);border-radius:15px;padding:20px;margin-top:25px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div>
-            <h3 style="margin:0;font-size:14px;font-weight:800;">활용 공공데이터 원본 다운로드 센터</h3>
-            <p style="margin:4px 0 0;font-size:11px;color:#8a9686;">심사위원 및 데이터 무결성 검증을 위한 공식 CSV 원본 데이터셋</p>
-          </div>
-          <span class="badge badge-green">공공데이터 100%</span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:10px;">
-          <a class="data-download-card" href="/data/서울교통공사_물품보관함_위치및설치수량.csv" download>
-            <div>
-              <strong>서울교통공사 데이터 (CSV)</strong>
-              <div style="color:#8a9485;font-size:10px;">1~8호선 위치·설치수량</div>
-            </div>
-            <span>⬇</span>
-          </a>
-          <a class="data-download-card" href="/data/부산교통공사_물품보관함_운영현황.csv" download>
-            <div>
-              <strong>부산교통공사 데이터 (CSV)</strong>
-              <div style="color:#8a9485;font-size:10px;">1~4호선 위치·운영현황</div>
-            </div>
-            <span>⬇</span>
-          </a>
-          <a class="data-download-card" href="/data/국가철도공단_역사별_물품보관함_현황.csv" download>
-            <div>
-              <strong>국가철도공단 데이터 (CSV)</strong>
-              <div style="color:#8a9485;font-size:10px;">전국 KTX·철도역 보관함</div>
-            </div>
-            <span>⬇</span>
-          </a>
-        </div>
-      </div>
     </section>
   </div>
 
   <footer>
-    <span class="brand-small">↘ 오늘의 짐</span>
-    <p>팀원: 김유미, 조원웅 · 공공데이터 & 보안 융합 프로젝트 · 서버 전송 없는 100% 브라우저 암호화(Zero-Log)</p>
+    <span style="font-weight:700;color:var(--primary);">오늘의 짐</span>
+    <p>팀원: 김유미, 조원웅 · 공공데이터와 이동 동선 알고리즘 기반 물품보관함 추천</p>
   </footer>
 </main>
 
@@ -196,14 +269,13 @@
   <div class="dialog-heading">
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:20px;">🔒</span>
-      <h2 style="margin:0;font-size:18px;">브라우저 암호화 금고 티켓 (Zero-Log)</h2>
+      <h2 style="font-size:18px;font-weight:800;">기기 내 안전 암호화 티켓</h2>
     </div>
-    <button class="close-button" id="closeVaultDialog">×</button>
+    <button class="close-btn" id="closeVaultDialog">×</button>
   </div>
-  <p style="margin:6px 0 16px;font-size:11px;color:#778574;">
-    외부 서버로 1바이트도 전송되지 않으며, 내 브라우저에서 <strong>Web Crypto AES-GCM 256비트</strong>로 암호화됩니다.
+  <p style="margin:4px 0 16px;font-size:12px;color:var(--text-sub);">
+    서버로 전송되지 않으며, 브라우저 내부에서 본인 PIN 번호로 안전하게 암호화 보관됩니다.
   </p>
-
   <div id="vaultContent"></div>
 </dialog>
 
@@ -211,35 +283,33 @@
 <dialog id="receiptDialog">
   <div class="dialog-heading">
     <div style="display:flex;align-items:center;gap:8px;">
-      <span style="font-size:20px;">✨</span>
-      <h2 style="margin:0;font-size:18px;">짐 회수 & 보안 파기 완료!</h2>
+      <span style="font-size:20px;">✓</span>
+      <h2 style="font-size:18px;font-weight:800;">짐 회수 완료</h2>
     </div>
-    <button class="close-button" id="closeReceiptDialog">×</button>
+    <button class="close-btn" id="closeReceiptDialog">×</button>
   </div>
-  <p style="margin:6px 0 14px;font-size:11px;color:#778574;">
-    Zero-Log 원칙에 따라 사물함 비밀번호와 이동 기록이 난수 덮어쓰기(Crypto-Shredding)로 완전 소거되었습니다.
+  <p style="margin:4px 0 14px;font-size:12px;color:var(--text-sub);">
+    사물함 비밀번호와 이동 기록이 기기에서 완전히 삭제되었습니다.
   </p>
   <div id="receiptContent"></div>
-  <button type="button" class="primary full" id="receiptDoneBtn" style="margin-top:14px;">확인 완료</button>
+  <button type="button" class="primary-btn" id="receiptDoneBtn" style="margin-top:16px;justify-content:center;">확인</button>
 </dialog>
 
-<!-- 기획·기술 명세서 모달 -->
+<!-- 기획 명세 모달 -->
 <dialog id="specDialog">
   <div class="dialog-heading">
-    <h2 style="margin:0;font-size:18px;">「오늘의 짐」 기획 및 5대 기반지식 기술 명세</h2>
-    <button class="close-button" id="closeSpecDialog">×</button>
+    <h2 style="font-size:18px;font-weight:800;">「오늘의 짐」 프로젝트 기획 명세</h2>
+    <button class="close-btn" id="closeSpecDialog">×</button>
   </div>
-  <div style="font-size:12px;line-height:1.8;color:#556350;margin-top:14px;">
-    <p><strong>1. 과목 1 (데이터 가공):</strong> 서울교통공사, 부산교통공사, 국가철도공단 공공데이터와 지하철 역간 소요시간 네트워크를 융합하여 [출발→보관→목적지→회수] 우회 손실 시간(Detour Time) 실시간 산출.</p>
-    <p><strong>2. 과목 2 (네트워크·보안 기본):</strong> 브라우저 내장 <code>Web Crypto API (PBKDF2 10만 회 + AES-GCM 256비트)</code> 암호화 적용. 서버 전송 0건(Zero-Log) 실현.</p>
-    <p><strong>3. 과목 3 (권한·접근통제):</strong> 본인 설정 PIN 번호 인증 없이는 비밀번호 열람 불가. 5회 오입력 방어 및 UI 마스킹(••••••) 처리.</p>
-    <p><strong>4. 과목 4 (이상조건·위험 탐지):</strong> 심야 역사 셔터 폐쇄 시각(24:00)과 회수 시각을 교차 분석하여 짐 감금 사고 사전 차단.</p>
-    <p><strong>5. 과목 5 (대응 자동화·보고서):</strong> 만차 대비 인접 플랜 B 대안 보관함 자동 연계 및 회수 완료 시 난수 덮어쓰기 영구 파기(Crypto-Shredding), SHA-256 검증 보안 영수증 발행.</p>
+  <div style="font-size:12px;line-height:1.8;color:var(--text-sub);margin-top:14px;">
+    <p><strong>1. 데이터 가공 (과목 1):</strong> 서울교통공사, 부산교통공사, 국가철도공단 보관함 데이터와 역간 소요시간을 결합해 [출발→보관→목적지→회수] 우회 손실 시간(Detour Time) 실시간 산출.</p>
+    <p><strong>2. 암호화 (과목 2):</strong> 브라우저 Web Crypto API(PBKDF2 10만 회 + AES-GCM 256비트) 적용으로 개인 비밀번호의 서버 전송 원천 차단.</p>
+    <p><strong>3. 접근통제 (과목 3):</strong> 사용자 본인 PIN 번호로만 티켓 열람 및 마스킹 해제.</p>
+    <p><strong>4. 이상조건 탐지 (과목 4):</strong> 심야 역사 셔터 폐쇄(24:00) 짐 감금 위험 자동 탐지 및 사전 경고.</p>
+    <p><strong>5. 자동화·보고서 (과목 5):</strong> 만차 대비 플랜 B 대안 보관함 매칭 및 회수 완료 시 난수 덮어쓰기 영구 파기(Crypto-Shredding), SHA-256 검증 영수증 발행.</p>
   </div>
-  <button type="button" class="primary full" id="closeSpecBtn2" style="margin-top:18px;">닫기</button>
 </dialog>
 
-<div id="toast" role="status" class="toast"></div>
 <script src="app.js"></script>
 </body>
 </html>

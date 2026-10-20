@@ -1,79 +1,151 @@
 const $ = id => document.getElementById(id);
 
 // -------------------------------------------------------------------
-// 1. 모드 전환 및 기본 폼 설정
+// 1. 시간 헬퍼 및 [현재 시각] 버튼
 // -------------------------------------------------------------------
-function mode(value) {
-  const route = value === 'route';
-  $('routeFields').hidden = !route;
-  $('priorityField').hidden = !route;
-  for (const [id, on] of [['nearTab', !route], ['routeTab', route]]) {
-    $(id).classList.toggle('active', on);
-    $(id).setAttribute('aria-selected', String(on));
-  }
-  $('searchText').textContent = route ? '내 일정에 맞는 보관함 찾기' : '가까운 보관함 찾기';
-  $('modeTitle').textContent = route ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
-  $('modeDescription').textContent = route ? '방문과 짐 회수 동선을 함께 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
-}
-
-$('nearTab').onclick = () => mode('near');
-$('routeTab').onclick = () => mode('route');
-
-document.querySelectorAll('[data-size]').forEach(b => {
-  b.onclick = () => document.querySelectorAll('[data-size]').forEach(x => {
-    x.classList.toggle('active', x === b);
-    x.setAttribute('aria-pressed', String(x === b));
-  });
-});
-
-$('sizeHelp').onclick = () => {
-  $('formError').textContent = '소형(서류가방/백팩), 중형(기내용 20인치), 대형(화물용 24~28인치) 규격을 지원합니다.';
+const formatLocalTime = d => {
+  const pad = n => String(n).padStart(2, '0');
+  const Y = d.getFullYear();
+  const M = pad(d.getMonth() + 1);
+  const D = pad(d.getDate());
+  const h = pad(d.getHours());
+  const m = pad(d.getMinutes());
+  return `${Y}-${M}-${D}T${h}:${m}`;
 };
 
-const local = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-const now = new Date();
-$('deposit').value = local(now);
-$('pickup').value = local(new Date(now.getTime() + 4 * 3600000));
-mode('route'); // 기본: 일정에 맞추기(동선 비교)
-
-// -------------------------------------------------------------------
-// 2. 빠른 시연 프리셋 핸들러 (해커톤 심사용)
-// -------------------------------------------------------------------
-function applyPreset(reg, start, visit, end, size, depositHours, pickupHours, isNight) {
-  mode('route');
-  $('region').value = reg;
-  $('start').value = start;
-  $('visit').value = visit;
-  $('end').value = end;
-  document.querySelectorAll('[data-size]').forEach(x => {
-    const match = x.dataset.size === size;
-    x.classList.toggle('active', match);
-    x.setAttribute('aria-pressed', String(match));
-  });
-
-  const base = new Date();
-  if (isNight) {
-    base.setHours(15, 0, 0, 0);
-    $('deposit').value = local(base);
-    const pick = new Date(base);
-    pick.setHours(23, 50, 0, 0);
-    $('pickup').value = local(pick);
-  } else {
-    base.setHours(depositHours, 0, 0, 0);
-    $('deposit').value = local(base);
-    const pick = new Date(base);
-    pick.setHours(pickupHours, 0, 0, 0);
-    $('pickup').value = local(pick);
-  }
-  $('plannerForm').requestSubmit();
+function setCurrentTimes() {
+  const now = new Date();
+  $('deposit').value = formatLocalTime(now);
+  const later = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+  $('pickup').value = formatLocalTime(later);
 }
 
-$('presetSeoul').onclick = () => applyPreset('서울', '서울역', '성수역', '서울역', 'L', 14, 20, false);
-$('presetBusan').onclick = () => applyPreset('부산', '부산역', '해운대', '부산역', 'L', 11, 18, false);
-$('presetNight').onclick = () => applyPreset('서울', '홍대입구역', '혜화역', '홍대입구역', 'M', 15, 23, true);
+// 초기화 시 현재 시각 설정
+setCurrentTimes();
+
+// [현재 시각] 버튼 클릭 시 실제로 사용 가능한 현재 시간 주입
+$('nowTimeBtn').onclick = () => {
+  setCurrentTimes();
+};
 
 // -------------------------------------------------------------------
-// 3. Web Crypto API (AES-GCM 256 + PBKDF2) 무로그 보안 금고 모듈
+// 2. 모드 전환 (바로 맡기기 vs 일정에 맞추기)
+// -------------------------------------------------------------------
+let currentMode = 'route';
+
+function setMode(value) {
+  currentMode = value;
+  const isRoute = value === 'route';
+  $('routeFields').style.display = isRoute ? 'block' : 'none';
+  $('priorityField').style.display = isRoute ? 'block' : 'none';
+
+  $('nearTab').classList.toggle('active', !isRoute);
+  $('nearTab').setAttribute('aria-selected', String(!isRoute));
+  $('routeTab').classList.toggle('active', isRoute);
+  $('routeTab').setAttribute('aria-selected', String(isRoute));
+
+  $('searchText').textContent = isRoute ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
+  $('modeTitle').textContent = isRoute ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
+  $('modeDescription').textContent = isRoute ? '방문과 짐 회수 동선을 함께 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
+}
+
+$('nearTab').onclick = () => setMode('near');
+$('routeTab').onclick = () => setMode('route');
+
+// 짐 크기 선택 버튼
+document.querySelectorAll('.size-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.size-btn').forEach(b => {
+      b.classList.remove('active');
+      b.removeAttribute('aria-pressed');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+  };
+});
+
+// -------------------------------------------------------------------
+// 3. 최근 경로 (Recent Routes) 관리
+// -------------------------------------------------------------------
+const RECENT_KEY = 'oneurui_jim_recent_routes';
+
+function loadRecentRoutes() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveRecentRoute(start, visit, end) {
+  const routes = loadRecentRoutes() || [
+    { start: '서울역', visit: '성수', end: '서울역' },
+    { start: '부산역', visit: '해운대', end: '부산역' },
+    { start: '홍대입구', visit: '혜화', end: '홍대입구' }
+  ];
+
+  // 중복 제거 후 맨 앞에 추가
+  const filtered = routes.filter(r => !(r.start === start && r.visit === visit && r.end === end));
+  filtered.unshift({ start, visit, end });
+  const trimmed = filtered.slice(0, 4);
+
+  localStorage.setItem(RECENT_KEY, JSON.stringify(trimmed));
+  renderRecentChips();
+}
+
+function renderRecentChips() {
+  const routes = loadRecentRoutes() || [
+    { start: '서울역', visit: '성수', end: '서울역' },
+    { start: '부산역', visit: '해운대', end: '부산역' },
+    { start: '홍대입구', visit: '혜화', end: '홍대입구' }
+  ];
+
+  const container = $('recentChips');
+  container.innerHTML = routes.map(r => `
+    <button type="button" class="recent-chip" data-start="${r.start}" data-visit="${r.visit}" data-end="${r.end}">
+      ${r.start} → ${r.visit} → ${r.end}
+    </button>
+  `).join('');
+
+  container.querySelectorAll('.recent-chip').forEach(btn => {
+    btn.onclick = () => {
+      const s = btn.dataset.start;
+      const v = btn.dataset.visit;
+      const e = btn.dataset.end;
+
+      $('startSelect').value = s;
+      $('visitSelect').value = v;
+      $('endSelect').value = (e === s) ? 'SAME_AS_START' : e;
+
+      setMode('route');
+      $('plannerForm').requestSubmit();
+    };
+  });
+}
+
+renderRecentChips();
+
+// -------------------------------------------------------------------
+// 4. 지역 드롭다운 연동 필터링 (스마트 자동 스크롤)
+// -------------------------------------------------------------------
+$('regionSelect').onchange = e => {
+  const reg = e.target.value;
+  if (reg === 'BUSAN') {
+    $('startSelect').value = '부산역';
+    $('visitSelect').value = '해운대';
+  } else if (reg === 'RAILWAY') {
+    $('startSelect').value = '동대구역';
+    $('visitSelect').value = '대전역';
+  } else if (reg === 'SEOUL') {
+    $('startSelect').value = '서울역';
+    $('visitSelect').value = '성수';
+  }
+};
+
+// -------------------------------------------------------------------
+// 5. Web Crypto API (AES-GCM 256 + PBKDF2) 보안 금고 모듈
 // -------------------------------------------------------------------
 const VAULT_STORAGE_KEY = 'oneurui_jim_vault_payload';
 
@@ -120,7 +192,7 @@ function updateVaultBadge() {
   const badge = $('activeVaultBadge');
   if (badge) {
     if (payload) {
-      badge.style.display = 'inline-block';
+      badge.style.display = 'inline-flex';
       badge.textContent = `🔒 ${payload.stationName} 보관 중`;
       badge.onclick = () => openVaultModal(payload.stationName, payload.location);
     } else {
@@ -131,53 +203,53 @@ function updateVaultBadge() {
 updateVaultBadge();
 
 // -------------------------------------------------------------------
-// 4. 보안 모달 열기 및 렌더링
+// 6. 보안 모달 열기 및 렌더링
 // -------------------------------------------------------------------
-let currentSelectedLocker = null;
-
 window.openVaultModal = function(stationName, locationDesc) {
-  currentSelectedLocker = { stationName, locationDesc };
   const payload = getStoredPayload();
   const container = $('vaultContent');
 
   if (payload) {
     // 이미 암호화 티켓이 있는 경우 -> 잠금 해제 화면
     container.innerHTML = `
-      <div class="vault-status-box">
+      <div style="background:#f3f6f1;border:1px solid #d4ded0;border-radius:12px;padding:18px;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <strong style="color:#7ad1a2;font-size:13px;">🔒 AES-GCM 256 암호화 보관 중</strong>
-          <span style="font-size:11px;color:#a3baa9;">${new Date(payload.createdAt).toLocaleTimeString('ko-KR')}</span>
+          <strong style="color:var(--primary);font-size:13px;">🔒 암호화 안전 보관 중</strong>
+          <span style="font-size:11px;color:var(--text-sub);">${new Date(payload.createdAt).toLocaleTimeString('ko-KR')}</span>
         </div>
-        <div style="font-size:12px;margin-bottom:6px;"><strong>역사:</strong> ${payload.stationName}</div>
-        <div style="font-size:11px;color:#cbd9ce;margin-bottom:14px;"><strong>위치:</strong> ${payload.location}</div>
-        <div style="background:#11221b;padding:8px 12px;border-radius:6px;font-family:monospace;font-size:10px;color:#85c29f;word-break:break-all;margin-bottom:14px;">
-          토큰: ${payload.cipherText.slice(0, 32)}... (평문 노출 차단)
-        </div>
+        <div style="font-size:13px;margin-bottom:4px;"><strong>보관 역사:</strong> ${payload.stationName}</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;"><strong>위치:</strong> ${payload.location}</div>
 
-        <div id="unlockedView" style="display:none;background:#203b30;border:1px solid #457860;border-radius:8px;padding:12px;margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-            <strong style="color:#a8f0cb;">PIN 인증 완료</strong>
-            <button type="button" id="toggleMaskBtn" style="background:none;border:0;color:#c1e2ce;font-size:11px;cursor:pointer;">비밀번호 보기</button>
+        <div id="unlockedView" style="display:none;background:#fff;border:1px solid #b7cebf;border-radius:10px;padding:14px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <strong style="color:var(--primary);font-size:12px;">PIN 인증 완료</strong>
+            <button type="button" id="toggleMaskBtn" style="background:none;border:0;color:var(--text-sub);font-size:11px;cursor:pointer;text-decoration:underline;">비밀번호 보기</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div><small style="color:#92ab9b;">사물함 번호</small><h4 id="viewLockerNo" style="margin:2px 0 0;font-size:16px;"></h4></div>
-            <div><small style="color:#92ab9b;">사물함 비밀번호</small><h4 id="viewPasscode" style="margin:2px 0 0;font-size:16px;color:#fce49f;">••••••</h4></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <small style="color:var(--text-muted);display:block;font-size:11px;">사물함 번호</small>
+              <h4 id="viewLockerNo" style="margin:2px 0 0;font-size:18px;font-weight:800;"></h4>
+            </div>
+            <div>
+              <small style="color:var(--text-muted);display:block;font-size:11px;">사물함 비밀번호</small>
+              <h4 id="viewPasscode" style="margin:2px 0 0;font-size:18px;font-weight:800;color:var(--accent);">••••••</h4>
+            </div>
           </div>
         </div>
 
         <form id="unlockForm">
-          <label style="display:block;font-size:11px;color:#cde0d3;margin-bottom:6px;">본인 마스터 PIN 번호 입력 (접근 통제)</label>
-          <div style="display:flex;gap:6px;">
-            <input id="unlockPinInput" type="password" maxlength="6" placeholder="PIN 4~6자리" style="flex:1;background:#0f1c16;border:1px solid #3c5949;color:white;padding:10px;border-radius:7px;text-align:center;font-family:monospace;letter-spacing:4px;" required>
-            <button type="submit" class="primary" style="padding:10px 16px;">잠금 해제</button>
+          <label style="display:block;font-size:12px;font-weight:700;color:var(--text-main);margin-bottom:6px;">본인 PIN 번호 입력</label>
+          <div style="display:flex;gap:8px;">
+            <input id="unlockPinInput" type="password" maxlength="6" placeholder="PIN 4~6자리" style="flex:1;background:#fff;border:1px solid var(--border);color:var(--text-main);padding:10px;border-radius:8px;text-align:center;font-weight:700;letter-spacing:4px;" required>
+            <button type="submit" class="ticket-action-btn" style="padding:10px 18px;">잠금 해제</button>
           </div>
-          <p id="unlockError" style="color:#f79e92;font-size:11px;margin:6px 0 0;"></p>
+          <p id="unlockError" style="color:var(--danger-text);font-size:11px;margin:6px 0 0;"></p>
         </form>
       </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
-        <span style="font-size:11px;color:#778574;">짐을 모두 찾으셨나요?</span>
-        <button type="button" class="shred-btn" id="triggerShredBtn">짐 회수 완료 & 영구 파기</button>
+        <span style="font-size:12px;color:var(--text-sub);">짐을 모두 찾으셨나요?</span>
+        <button type="button" class="ticket-action-btn" id="triggerShredBtn" style="background:#b83d2c;">짐 회수 완료 및 기록 삭제</button>
       </div>
     `;
 
@@ -194,15 +266,14 @@ window.openVaultModal = function(stationName, locationDesc) {
         const cipher = b642buf(payload.cipherText);
         const key = await derivePinKey(pin, salt);
         const dec = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
-        const text = new TextDecoder().decode(dec);
-        decryptedData = JSON.parse(text);
+        decryptedData = JSON.parse(new TextDecoder().decode(dec));
 
         $('unlockForm').style.display = 'none';
         $('unlockedView').style.display = 'block';
         $('viewLockerNo').textContent = decryptedData.lockerNo;
         $('viewPasscode').textContent = '••••••';
       } catch {
-        $('unlockError').textContent = 'PIN 번호가 일치하지 않거나 데이터가 변조되었습니다.';
+        $('unlockError').textContent = 'PIN 번호가 일치하지 않습니다.';
       }
     };
 
@@ -217,7 +288,7 @@ window.openVaultModal = function(stationName, locationDesc) {
     }
 
     $('triggerShredBtn').onclick = async () => {
-      // Crypto-Shredding 실행: 난수 덮어쓰기 후 완전 삭제
+      // Crypto-Shredding 실행
       const digest = await sha256(JSON.stringify(payload) + Date.now());
       const noise = buf2b64(window.crypto.getRandomValues(new Uint8Array(128)));
       localStorage.setItem(VAULT_STORAGE_KEY, noise);
@@ -225,19 +296,12 @@ window.openVaultModal = function(stationName, locationDesc) {
       updateVaultBadge();
       $('vaultDialog').close();
 
-      // 영수증 모달 출력
       $('receiptContent').innerHTML = `
-        <div class="receipt-box">
-          <div style="display:flex;justify-content:space-between;border-bottom:1px solid #c9d4c4;padding-bottom:8px;margin-bottom:8px;">
-            <strong>Zero-Log 보안 폐기 증명서</strong>
-            <span style="color:#285847;font-weight:700;">VERIFIED</span>
-          </div>
-          <div>• 인증 세션: SHRED-${Math.random().toString(36).slice(2, 8).toUpperCase()}</div>
-          <div>• 이용 역사: ${payload.stationName}</div>
-          <div>• 파기 일시: ${new Date().toLocaleString('ko-KR')}</div>
-          <div>• 브라우저 메모리 제로필: <strong style="color:#285847;">100% 영구 소거 완료</strong></div>
-          <div>• 외부 서버 전송 잔존: <strong style="color:#285847;">0건 (Zero-Server)</strong></div>
-          <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #c9d4c4;font-size:9px;color:#7a8a77;">
+        <div style="background:#f4f6f1;border:1px solid #d4ded0;border-radius:12px;padding:16px;font-size:12px;line-height:1.8;">
+          <div>• <strong>이용 역사:</strong> ${payload.stationName}</div>
+          <div>• <strong>회수 일시:</strong> ${new Date().toLocaleString('ko-KR')}</div>
+          <div>• <strong>기기 내 보관 데이터:</strong> <span style="color:var(--primary);font-weight:700;">영구 소거 완료 (기록 없음)</span></div>
+          <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #c9d4c4;font-size:10px;color:var(--text-muted);font-family:monospace;">
             SHA-256 Digest: ${digest}
           </div>
         </div>
@@ -246,33 +310,33 @@ window.openVaultModal = function(stationName, locationDesc) {
     };
 
   } else {
-    // 신규 티켓 발급 폼
+    // 신규 티켓 생성 폼
     container.innerHTML = `
       <form id="newTicketForm">
-        <div style="background:#f4f7f1;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;">
-          선택 보관함: <strong>${stationName}</strong> (${locationDesc})
+        <div style="background:#f3f6f1;padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:12px;">
+          선택 보관소: <strong>${stationName}</strong> (${locationDesc})
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
           <div>
             <label class="field-label">사물함 번호</label>
-            <input id="inpLockerNo" placeholder="예: 14번" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:7px;" required>
+            <input id="inpLockerNo" placeholder="예: 14번" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;" required>
           </div>
           <div>
             <label class="field-label">사물함 비밀번호</label>
-            <input id="inpPasscode" placeholder="예: 7294" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:7px;" required>
+            <input id="inpPasscode" placeholder="예: 7294" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;" required>
           </div>
         </div>
 
-        <div style="margin-bottom:16px;">
-          <label class="field-label">열람 잠금용 본인 마스터 PIN (4~6자리)</label>
-          <input id="inpPin" type="password" maxlength="6" placeholder="숫자 4~6자리 입력" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:7px;font-family:monospace;letter-spacing:3px;" required>
-          <small style="color:#7f8f7c;font-size:10px;display:block;margin-top:4px;">
-            이 PIN으로 AES-GCM 키를 유도하며, 서버에 전송되지 않습니다.
+        <div style="margin-bottom:18px;">
+          <label class="field-label">열람 잠금용 PIN 번호 (4~6자리)</label>
+          <input id="inpPin" type="password" maxlength="6" placeholder="숫자 4~6자리" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-weight:700;text-align:center;letter-spacing:4px;" required>
+          <small style="color:var(--text-muted);font-size:11px;display:block;margin-top:4px;">
+            이 PIN으로 기기 내에서만 암호화되며, 다른 사람에게 노출되지 않습니다.
           </small>
         </div>
 
-        <button type="submit" class="primary full">🔒 Web Crypto AES-GCM 암호화 금고에 저장</button>
+        <button type="submit" class="primary-btn" style="justify-content:center;">안전하게 저장하기</button>
       </form>
     `;
 
@@ -305,7 +369,7 @@ window.openVaultModal = function(stationName, locationDesc) {
 
       localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(payload));
       updateVaultBadge();
-      alert('비밀번호가 브라우저 내 암호화 금고에 안전하게 저장되었습니다!');
+      alert('비밀번호가 기기에 안전하게 저장되었습니다!');
       $('vaultDialog').close();
     };
   }
@@ -317,13 +381,12 @@ $('closeVaultDialog').onclick = () => $('vaultDialog').close();
 $('closeReceiptDialog').onclick = () => $('receiptDialog').close();
 $('receiptDoneBtn').onclick = () => $('receiptDialog').close();
 
-// 기획 명세서 모달
+// 기획 명세 모달
 $('openSpecBtn').onclick = () => $('specDialog').showModal();
 $('closeSpecDialog').onclick = () => $('specDialog').close();
-$('closeSpecBtn2').onclick = () => $('specDialog').close();
 
 // -------------------------------------------------------------------
-// 5. 검색 폼 제출 및 결과 카드 렌더링
+// 7. 검색 폼 제출 및 최적 결과 렌더링
 // -------------------------------------------------------------------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clock = s => s ? String(s).slice(0, 2) + ':' + String(s).slice(2, 4) : '24:00';
@@ -333,33 +396,33 @@ $('plannerForm').onsubmit = async e => {
   const btn = document.querySelector('.search-button');
   if (btn.disabled) return;
 
-  const q = {
-    coords: currentCoords,
-    code: '',
-    region: $('region').value.trim(),
-    start: $('start').value.trim(),
-    visit: $('visit').value.trim(),
-    end: $('end').value.trim(),
-    mode: $('routeFields').hidden ? 'near' : 'route',
-    size: document.querySelector('[data-size].active').dataset.size,
-    priority: $('priority').value,
-    deposit: $('deposit').value,
-    pickup: $('pickup').value
-  };
+  const startVal = $('startSelect').value;
+  const visitVal = $('visitSelect').value;
+  const endVal = ($('endSelect').value === 'SAME_AS_START') ? startVal : $('endSelect').value;
+  const sizeVal = document.querySelector('.size-btn.active').dataset.size;
+  const depositVal = $('deposit').value;
+  const pickupVal = $('pickup').value;
+  const priorityVal = $('priority').value;
 
-  if (!q.start || (q.mode === 'route' && (!q.visit || !q.end))) {
-    $('formError').textContent = '출발지와 목적지를 입력해주세요.';
-    return;
-  }
-  if (new Date(q.pickup) <= new Date(q.deposit)) {
+  if (new Date(pickupVal) <= new Date(depositVal)) {
     $('formError').textContent = '찾을 시각은 맡길 시각 이후로 선택해주세요.';
     return;
   }
 
   btn.disabled = true;
-  const label = $('searchText').textContent;
-  $('searchText').textContent = '전국 보관함 및 동선 계산 중…';
+  $('searchText').textContent = '최적 경로 계산 중…';
   $('formError').textContent = '';
+
+  const q = {
+    start: startVal,
+    visit: visitVal,
+    end: endVal,
+    mode: currentMode,
+    size: sizeVal,
+    priority: priorityVal,
+    deposit: depositVal,
+    pickup: pickupVal
+  };
 
   try {
     const r = await fetch('/api/search', {
@@ -370,10 +433,21 @@ $('plannerForm').onsubmit = async e => {
     const d = await r.json();
     if (!r.ok) throw Error(d.error || '조회 실패');
 
-    $('resultsTitle').textContent = '보관함 ' + d.results.length + '곳';
-    $('mapPlaceholder').innerHTML = '<h3>' + esc(d.start.name) + ' 기준 최적 동선 분석 완료</h3><p>' + esc(d.scope) + '</p>';
-    $('summary').classList.add('visible');
-    $('summary').innerHTML = '<strong>' + esc(d.note) + '</strong><br><small>데이터 출처: ' + esc(d.source) + '</small>';
+    // 최근 경로 저장
+    if (currentMode === 'route') {
+      saveRecentRoute(startVal, visitVal, endVal);
+    }
+
+    $('emptyGuide').style.display = 'none';
+    $('resultsCount').textContent = d.results.length;
+
+    $('summary').style.display = 'block';
+    $('summary').innerHTML = `
+      <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} 일정</strong>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+        ${esc(d.note)}
+      </div>
+    `;
 
     $('cards').innerHTML = d.results.length
       ? d.results.map((l, index) => {
@@ -381,118 +455,81 @@ $('plannerForm').onsubmit = async e => {
           return `
             <article class="locker-card ${isBest ? 'selected' : ''}">
               <div class="card-top">
-                <div class="locker-icon">${isBest ? '🏆' : '🧳'}</div>
+                <div class="locker-badge-icon">${isBest ? '★' : (index + 1)}</div>
                 <div class="card-title">
                   <div class="card-tags">
                     <span class="tag ${isBest ? 'recommend' : ''}">${isBest ? '추천 1위' : '#' + (index + 1)}</span>
                     <span class="tag">${l.location.includes('개찰구 안') ? '개찰구 안쪽' : '개찰구 밖 대합실'}</span>
-                    <span class="tag unknown">코드: ${esc(l.id)}</span>
+                    <span class="tag" style="font-family:monospace;">${esc(l.id)}</span>
                   </div>
                   <h3>${esc(l.name)}</h3>
-                  <p>${esc(l.address)}<br><strong>${esc(l.location)}</strong></p>
+                  <p>${esc(l.location)}</p>
                 </div>
               </div>
 
-              ${l.curfewWarning ? `<div class="curfew-alert">${esc(l.curfewWarning)}</div>` : ''}
+              ${l.curfewWarning ? `
+                <div class="curfew-box">
+                  <span>🚨</span>
+                  <span>${esc(l.curfewWarning)}</span>
+                </div>
+              ` : ''}
 
               <div class="metrics">
                 <div class="metric">
                   <small>전체 이동시간</small>
-                  <strong>${l.total === null ? '연산 중' : l.total + '<em>분</em>'}</strong>
+                  <strong>${l.total === null ? '-' : l.total + '<em>분</em>'}</strong>
                   <small class="note">출발→보관→방문→회수</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
-                  <strong>${l.carry === null ? '확인 필요' : l.carry + '<em>분</em>'}</strong>
-                  <small class="note">실제 보관 효과</small>
+                  <strong style="color:var(--primary);">${l.carry === null ? '-' : l.carry + '<em>분</em>'}</strong>
+                  <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
-                  <small>선택 규격 칸수</small>
-                  <strong>${esc(l.available === null ? '현장확인' : l.available + '칸')}</strong>
-                  <small class="note">정직한 총 설치량</small>
+                  <small>설치 칸수</small>
+                  <strong>${esc(l.available === null ? '-' : l.available + '칸')}</strong>
+                  <small class="note">정직한 총 수량</small>
                 </div>
               </div>
 
-              <div class="plan-b-box">
-                <strong>만차 대비 플랜 B:</strong> ${esc(l.planB?.name || '인근 대안 보관함')} · ${esc(l.planB?.tip || '현장 안내')}
-              </div>
-
-              <div style="font-size:11px;color:#788474;margin:8px 0;">
-                운영시간: 평일 ${clock(l.hours?.weekday?.[0])}–${clock(l.hours?.weekday?.[1])} / 
-                주말·공휴일 ${clock(l.hours?.saturday?.[0])}–${clock(l.hours?.saturday?.[1])} (자정 역사 셔터 마감)
+              <div class="plan-b-card">
+                <strong>만차 대비 대안:</strong> ${esc(l.planB?.name || '인근 보관소')} · ${esc(l.planB?.tip || '현장 안내')}
               </div>
 
               ${l.details?.length ? l.details.map(x => `
-                <div style="font-size:11px;color:#495e43;background:#f3f6ef;padding:8px 12px;border-radius:6px;margin:6px 0;">
+                <div style="font-size:12px;background:var(--surface-sub);padding:10px 14px;border-radius:8px;margin:8px 0;line-height:1.6;">
                   <strong>${esc(x.stlckKndNm)}</strong> · ${esc(x.utztnCrgExpln || '기본 요금')} (${esc(x.addCrgExpln || '')})<br>
-                  규격: 가로 ${esc(x.stlckWdthLenExpln || '450mm')} × 높이 ${esc(x.stlckHgtExpln || '600mm')} × 깊이 ${esc(x.stlckDpthExpln || '500mm')}
+                  <span style="color:var(--text-sub);font-size:11px;">규격: 가로 ${esc(x.stlckWdthLenExpln || '450mm')} × 높이 ${esc(x.stlckHgtExpln || '600mm')} × 깊이 ${esc(x.stlckDpthExpln || '500mm')}</span>
                 </div>
               `).join('') : ''}
 
-              <details style="font-size:11px;margin-top:10px;">
-                <summary style="cursor:pointer;color:#285847;font-weight:700;">상세 이동 구간 보기</summary>
-                <div style="margin-top:8px;padding-left:10px;border-left:2px solid #cad6c4;">
+              <details style="font-size:12px;margin:10px 0;color:var(--text-sub);">
+                <summary style="cursor:pointer;font-weight:700;color:var(--primary);">상세 이동 구간 확인</summary>
+                <div style="margin-top:8px;padding-left:12px;border-left:2px solid #cbd6c7;line-height:1.7;">
                   ${l.legs.map((leg, i) => `
-                    <p style="margin:4px 0;">
-                      <strong>${['1. 출발지 → 보관함', '2. 보관함 → 방문지', '3. 방문지 → 보관함(회수)', '4. 보관함 → 최종 목적지'][i]}:</strong>
-                      ${leg ? leg.minutes + '분 (' + leg.steps.map(esc).join(' · ') + ')' : '경로 연산'}
-                    </p>
+                    <div style="margin:4px 0;">
+                      <strong>${['1. 출발지 → 보관함', '2. 보관함 → 목적지', '3. 목적지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
+                      ${leg ? leg.minutes + '분 (' + leg.steps.map(esc).join(' · ') + ')' : '-'}
+                    </div>
                   `).join('')}
                 </div>
               </details>
 
-              <div style="display:flex;justify-content:flex-end;margin-top:12px;">
-                <button type="button" class="ticket-btn" onclick="openVaultModal('${esc(l.name)}', '${esc(l.location)}')">
-                  🔒 이 보관함에 짐 넣기 & 보안 티켓 발급
+              <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                <button type="button" class="ticket-action-btn" onclick="openVaultModal('${esc(l.name)}', '${esc(l.location)}')">
+                  🔒 보관함 번호·비밀번호 안전 보관
                 </button>
               </div>
             </article>
           `;
         }).join('')
-      : '<div class="empty"><h3>조회된 보관함이 없어요</h3><p>출발지 또는 목적지 역명을 확인해주세요.</p></div>';
+      : '<div class="empty"><h3>조회된 보관함이 없습니다.</h3></div>';
 
   } catch (err) {
     $('formError').textContent = err.message;
-    $('cards').innerHTML = '<div class="empty"><h3>검색을 완료하지 못했어요</h3><p>' + esc(err.message) + '</p></div>';
+    $('cards').innerHTML = `<div class="empty"><h3>검색 오류</h3><p>${esc(err.message)}</p></div>`;
   } finally {
     btn.disabled = false;
-    $('searchText').textContent = label;
+    $('searchText').textContent = (currentMode === 'route') ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   }
-};
-
-// -------------------------------------------------------------------
-// 6. 현재 위치 지오로케이션
-// -------------------------------------------------------------------
-let currentCoords = null;
-$('start').addEventListener('input', () => { currentCoords = null; });
-$('locateButton').onclick = () => {
-  if (!navigator.geolocation) {
-    $('formError').textContent = '이 브라우저는 위치 조회를 지원하지 않아요.';
-    return;
-  }
-  $('locateButton').disabled = true;
-  $('locateButton').textContent = '현재 위치 확인 중…';
-
-  navigator.geolocation.getCurrentPosition(
-    async pos => {
-      currentCoords = { x: pos.coords.longitude, y: pos.coords.latitude };
-      $('start').value = '현재 위치';
-      $('locateButton').disabled = false;
-      $('locateButton').textContent = '◎ 현재 위치 새로고침';
-      try {
-        const r = await fetch('/api/region?x=' + currentCoords.x + '&y=' + currentCoords.y);
-        const d = await r.json();
-        if (r.ok && d.code) {
-          $('region').value = '';
-          $('formError').textContent = '현재 위치를 적용했어요.';
-        }
-      } catch {}
-    },
-    () => {
-      $('locateButton').disabled = false;
-      $('locateButton').textContent = '◎ 현재 위치에서 찾기';
-      $('formError').textContent = '위치 권한을 허용하거나 출발지를 직접 입력해주세요.';
-    },
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-  );
 };
