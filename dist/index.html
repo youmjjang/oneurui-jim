@@ -13,17 +13,17 @@
     <aside class="planner">
       <div class="mode-switch" role="tablist" aria-label="보관함 검색 방식"><button id="nearTab" role="tab" aria-selected="true" aria-controls="plannerForm" class="active">바로 맡기기</button><button id="routeTab" role="tab" aria-selected="false" aria-controls="plannerForm">일정에 맞추기</button></div>
       <div class="planner-heading"><span class="step-label" id="modeEyebrow">NEAR ME</span><h2 id="modeTitle">일단, 짐부터 내려놓을까요?</h2><p id="modeDescription">출발지에서 가까운 보관함을 비교해요.</p></div>
-      <form id="plannerForm">
+      <form id="plannerForm"><label class="field-label" for="region">보관함을 찾을 지역</label><select id="region"></select>
         <label class="field-label" for="start">출발 위치 </label><div class="place-field"><span class="field-dot green"></span><input id="start" aria-label="출발 위치" placeholder="장소 또는 주소 입력" autocomplete="off"></div>
         <div id="routeFields" hidden><div class="connector"></div><label class="field-label" for="visit">짐 없이 방문할 곳</label><div class="place-field"><span class="field-dot coral"></span><input id="visit" aria-label="방문할 장소" placeholder="장소 또는 주소 입력" autocomplete="off"></div><div class="connector"></div><label class="field-label" for="end">짐을 찾고 마지막으로 갈 곳</label><div class="place-field"><span class="field-dot dark"></span><input id="end" aria-label="최종 목적지" placeholder="장소 또는 주소 입력" autocomplete="off"></div></div>
         <div class="field-label size-label">짐 크기 <button type="button" id="sizeHelp" class="inline-button">규격 보기 ⓘ</button></div><div class="size-options" role="group" aria-label="짐 크기"><button type="button" data-size="S"><span>▣</span><strong>작은 가방</strong><small>소형</small></button><button type="button" data-size="M" class="active" aria-pressed="true"><span>▥</span><strong>기내용 캐리어</strong><small>중형</small></button><button type="button" data-size="L"><span>▥</span><strong>큰 캐리어</strong><small>대형</small></button></div>
         <div class="date-fields"><div><label for="deposit" class="field-label">맡길 시각</label><input id="deposit" type="datetime-local" required></div><div><label for="pickup" class="field-label">찾을 시각</label><input id="pickup" type="datetime-local" required></div></div>
-        <div id="priorityField" hidden><label class="field-label" for="priority">내가 더 중요하게 생각하는 건</label><select id="priority"><option value="total">전체 이동시간 줄이기</option><option value="carry">짐 들고 이동하는 시간 줄이기</option><option value="price">보관 비용 아끼기</option></select></div>
+        <div id="priorityField" hidden><label class="field-label" for="priority">내가 더 중요하게 생각하는 건</label><select id="priority"><option value="total">전체 이동시간 줄이기</option><option value="carry">짐 들고 이동하는 시간 줄이기</option></select></div>
         <p id="formError" class="error" role="alert"></p><button type="submit" class="primary search-button"><span id="searchText">가까운 보관함 찾기</span><span>→</span></button>
       </form>
     </aside>
     <section class="results-area" aria-label="보관함 검색 결과">
-      <div class="empty" id="mapPlaceholder"><h3>어디에 짐을 맡길까요?</h3><p>지도와 보관함 정보를 연결하고 있어요.</p></div>
+      <div class="empty" id="mapPlaceholder"><h3>어디에 짐을 맡길까요?</h3><p>지역과 출발지를 입력해 공공 보관함을 검색하세요.</p></div>
       <div class="results-heading"><div><span class="step-label">YOUR LIGHTER DAY</span><h2 id="resultsTitle">가까운 보관함 <span>0</span></h2></div><button class="compare-toggle" id="compareButton">비교함 <span id="compareCount">0</span></button></div>
       <div id="summary" class="summary"></div><div class="sort-row"><p id="resultCaption"></p><label>정렬 <select id="sort"><option value="recommended">추천순</option><option value="near">가까운순</option><option value="price">저렴한순</option><option value="total">전체 이동시간순</option></select></label></div>
       <div id="cards" class="cards" aria-live="polite"></div>

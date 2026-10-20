@@ -17,5 +17,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 60
+    }
+  }
 }
