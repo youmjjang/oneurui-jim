@@ -1277,11 +1277,9 @@ if ($('receiptDoneBtn')) $('receiptDoneBtn').onclick = () => $('receiptDialog').
 if ($('openPhoneBtn')) $('openPhoneBtn').onclick = () => $('phoneDialog').showModal();
 if ($('closePhoneDialog')) $('closePhoneDialog').onclick = () => $('phoneDialog').close();
 
-if ($('openSpecBtn')) $('openSpecBtn').onclick = () => $('specDialog').showModal();
-if ($('closeSpecDialog')) $('closeSpecDialog').onclick = () => $('specDialog').close();
 
 // 모달 바깥 어두운 배경(Backdrop) 클릭 시 닫기
-['customDatePickerDialog', 'vaultDialog', 'receiptDialog', 'phoneDialog', 'specDialog'].forEach(id => {
+['customDatePickerDialog', 'vaultDialog', 'receiptDialog', 'phoneDialog'].forEach(id => {
   const dlg = $(id);
   if (dlg) {
     dlg.addEventListener('click', e => {
@@ -1408,8 +1406,8 @@ $('plannerForm').onsubmit = async e => {
               <div class="metrics">
                 <div class="metric">
                   <small>전체 이동시간</small>
-                  <strong>${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</strong>
-                  <small class="note">맡기기→경유지→회수→최종 도착</small>
+                  <button type="button" class="route-time-button" data-route="${esc(JSON.stringify({name:l.name,total:l.total,legs:l.legs||[]}))}" aria-label="전체 이동시간 상세 구간 보기">${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</button>
+                  <small class="note capacity-hint">이동 구간 보기 ›</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
@@ -1417,15 +1415,14 @@ $('plannerForm').onsubmit = async e => {
                   <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
-                  <small>실시간 빈자리</small>
-                  <strong>${esc(l.available == null ? '미제공' : l.available + '칸')}</strong>
-                  <small class="note">설치수량과 달라요</small>
+                  <small>설치수량</small>
+                  <button type="button" class="capacity-button" data-capacity="${esc(l.capacityText || '미제공')}" data-location="${esc(l.location || '')}" aria-label="설치수량 및 크기별 수량 보기">${capacitySummary(l.capacityText)}</button>
+                  <small class="note capacity-hint">크기별 보기 ›</small>
                 </div>
               </div>
 
               <p style="font-size:12px;color:var(--primary);">${esc(l.candidateReason || '')}</p>
-              ${l.facilities?.length ? '<details style="font-size:12px;margin:12px 0;"><summary>이 역 보관함 자료 ' + l.facilities.length + '건 보기 (중복 포함 가능)</summary>' + l.facilities.map(f=>'<div style="padding:8px 0;border-bottom:1px solid #eee;">'+esc(f.line||'')+' · '+esc(f.location||'위치 미제공')+'<br>설치수량: '+esc(f.capacityText||'미제공')+'<br>요금: '+esc(f.feeText||'미제공')+'<br><small>'+esc(f.source||'')+'</small></div>').join('')+'</details>' : ''}
-              <div class="plan-b-card"><strong>설치수량(빈자리 아님):</strong> ${esc(l.capacityText || '미제공')}<br><small>자료 기준일: ${esc(l.referenceDate || '미제공')} · ${esc(l.source || '')} · ${l.coordinatePrecision === 'station' ? '역 대표 좌표 기준' : '시설 위치 기준'}</small></div>
+              ${l.facilities?.length ? '<details style="font-size:12px;margin:12px 0;"><summary>이 역 보관함 자료 ' + l.facilities.length + '건 보기 (중복 포함 가능)</summary>' + l.facilities.map(f=>'<div style="padding:8px 0;border-bottom:1px solid #eee;">'+esc(f.line||'')+' · '+esc(f.location||'위치 미제공')+'<br>요금: '+esc(f.feeText||'미제공')+'</div>').join('')+'</details>' : ''}
               ${l.details?.length ? l.details.map(x => `
                 <div style="font-size:12px;background:var(--surface-sub);padding:10px 14px;border-radius:8px;margin:8px 0;line-height:1.6;">
                   <strong>${esc(x.stlckKndNm)}</strong> · ${esc(x.utztnCrgExpln || '기본 요금')} (${esc(x.addCrgExpln || '')})<br>
@@ -1433,17 +1430,7 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               `).join('') : ''}
 
-              <details style="font-size:12px;margin:10px 0;color:var(--text-sub);">
-                <summary style="cursor:pointer;font-weight:700;color:var(--primary);">상세 이동 구간 확인</summary>
-                <div style="margin-top:8px;padding-left:12px;border-left:2px solid #cbd6c7;line-height:1.7;">
-                  ${l.legs.map((leg, i) => `
-                    <div style="margin:4px 0;">
-                      <strong>${['1. 출발지 → 보관함', '2. 보관함 → 경유지', '3. 경유지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
-                      ${Number.isFinite(leg?.minutes) ? formatMinutesText(leg.minutes) + ' (' + leg.steps.map(esc).join(' · ') + ')' : esc(leg?.error || '경로를 불러오지 못했어요')}
-                    </div>
-                  `).join('')}
-                </div>
-              </details>
+
 
               <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;">
                 <a href="tel:${agencyContact.tel}" class="card-phone-pill" title="클릭 시 전화 연결">
@@ -1499,3 +1486,27 @@ function attachPlaceSuggestions(input, select, wrap) {
   input.addEventListener('blur',e=>{if(e.relatedTarget&&wrap.contains(e.relatedTarget))return;setTimeout(()=>{if(!press&&!selecting&&!wrap.contains(document.activeElement))close();},150);});
   document.addEventListener('click',e=>{if(!wrap.contains(e.target))close();});
 }
+function capacityParts(text){
+ const parts=[];const re=/(특대형|특대|대형|중형|소형|대|중|소)\s*[:：]?\s*(\d[\d,]*)\s*(?:개|칸)?/g;
+ for(const m of String(text||'').matchAll(re))parts.push({size:m[1].replace('형',''),count:Number(m[2].replaceAll(',',''))});
+ return parts;
+}
+function capacitySummary(text){const parts=capacityParts(text);if(parts.length)return parts.reduce((n,p)=>n+p.count,0)+'칸';const m=String(text||'').match(/^\s*(\d[\d,]*)\s*(?:칸|개)\s*$/);return m?Number(m[1].replaceAll(',',''))+'칸':'미제공';}
+document.addEventListener('click',e=>{
+ const button=e.target.closest('.capacity-button');if(!button)return;
+ let dialog=document.getElementById('capacityDialog');
+ if(!dialog){dialog=document.createElement('dialog');dialog.id='capacityDialog';document.body.append(dialog);dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});}
+ const parts=capacityParts(button.dataset.capacity);
+ dialog.setAttribute('aria-label','크기별 보관함 설치수량');
+ dialog.innerHTML='<div class="dialog-scroll-wrap capacity-content"><div class="dialog-heading"><h2>📦 크기별 설치수량</h2><button type="button" class="close-btn" aria-label="닫기">×</button></div><p class="capacity-location">'+esc(button.dataset.location)+'</p><div class="capacity-total">전체 설치수량 <strong>'+capacitySummary(button.dataset.capacity)+'</strong></div><div class="capacity-size-cards">'+(parts.length?parts.map(p=>'<div class="capacity-size-card"><span class="capacity-size-tag">'+esc(p.size)+'형</span><strong>'+p.count+'<small>칸</small></strong></div>').join(''):'<p>크기별 수량이 제공되지 않았어요.</p>')+'</div><p class="capacity-footnote">설치된 보관함 수예요. 현재 이용 가능한 빈자리 수와는 달라요.</p></div>';
+ dialog.querySelector('.close-btn').onclick=()=>dialog.close();dialog.showModal();
+});
+
+document.addEventListener('click',e=>{
+ const button=e.target.closest('.route-time-button');if(!button)return;
+ const route=JSON.parse(button.dataset.route);let dialog=document.getElementById('routeTimeDialog');
+ if(!dialog){dialog=document.createElement('dialog');dialog.id='routeTimeDialog';dialog.setAttribute('aria-label','상세 이동 구간');document.body.append(dialog);dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});}
+ const labels=['출발지 → 보관함','보관함 → 경유지','경유지 → 보관함 회수','보관함 → 최종 목적지'];
+ dialog.innerHTML='<div class="dialog-scroll-wrap"><div class="dialog-heading"><h2 style="font-size:18px;margin:0;">🚶 상세 이동 구간</h2><button type="button" class="close-btn" aria-label="닫기">×</button></div><p class="capacity-location">'+esc(route.name)+'</p><div class="capacity-total">전체 이동시간 <strong>'+formatMinutesText(route.total)+'</strong></div><div class="route-segments">'+route.legs.map((leg,i)=>'<section class="route-segment"><div><span class="route-step-number">'+(i+1)+'</span><strong>'+labels[i]+'</strong></div><b>'+ (Number.isFinite(leg?.minutes)?formatMinutesText(leg.minutes):'조회 실패')+'</b><p>'+ (Number.isFinite(leg?.minutes)?(leg.steps||[]).map(esc).join(' · '):esc(leg?.error||'경로를 불러오지 못했어요'))+'</p></section>').join('')+'</div><p class="capacity-footnote">조회 시점의 경로 기준이며, 역 안에서 실제 보관함까지 이동하는 시간은 다를 수 있어요.</p></div>';
+ dialog.querySelector('.close-btn').onclick=()=>dialog.close();dialog.showModal();
+});
