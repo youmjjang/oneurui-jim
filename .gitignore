@@ -15,3 +15,6 @@ scripts/build_word_script.py
 scripts/capture-slides-screenshots.mjs
 scripts/capture_full_deck_screens.mjs
 scripts/test_gangnam.mjs
+scripts/test_scenarios.mjs
+scripts/test_detailed.mjs
+scripts/test_ui_results.mjs
