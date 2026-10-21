@@ -1,4 +1,4 @@
-import {makeJourney,inputTime} from '../lib/train-routing.js';
+import {makeJourney,makeArriveBy,inputTime} from '../lib/train-routing.js';
 import legacySearch from '../lib/legacy-search.js';
 import {readFile} from 'node:fs/promises';
 let cache;let combined;
@@ -27,7 +27,7 @@ async function leg(a,b){
  return {minutes:null,steps:[],error:reason};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
-const journey=makeJourney(leg,km);
+const journey=makeJourney(leg,km);const arriveBy=makeArriveBy(leg,km);
 let govLockersCache = null;
 let govLockersLastFetch = 0;
 
@@ -208,11 +208,10 @@ const rows=await Promise.all(candidates.map(async l=>{const when=inputTime(q.dep
 legs.push(await journey(start,l,departure));
 if(q.mode==='route'){
  legs.push(await journey(l,visit,departure+(legs[0]?.minutes||0)*60000));
- const back=await leg(visit,l);
- const returnAt=Number.isFinite(pickup)?pickup-(back?.minutes||0)*60000:departure+((legs[0]?.minutes||0)+(legs[1]?.minutes||0))*60000;
- legs.push(await journey(visit,l,returnAt));
- const recoveredAt=returnAt+(legs[2]?.minutes||0)*60000;
- legs.push(await journey(l,end,Number.isFinite(pickup)?Math.max(pickup,recoveredAt):recoveredAt));
+ const visitArrival=departure+((legs[0]?.minutes||0)+(legs[1]?.minutes||0))*60000;
+ legs.push(Number.isFinite(pickup)?await arriveBy(visit,l,pickup,visitArrival):await journey(visit,l,visitArrival));
+ const recoveredAt=Number.isFinite(pickup)?pickup:visitArrival+(legs[2]?.minutes||0)*60000;
+ legs.push(await journey(l,end,recoveredAt));
 }else if(nearAnchor)legs.push(await journey(l,nearAnchor,departure+(legs[0]?.minutes||0)*60000));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,targetDistance:l.targetDistance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
 const primary=q.priority==='carry'?'carry':'total';const secondary=primary==='carry'?'total':'carry';
 const all=[...rows,...live];const valid=all.filter(r=>Number.isFinite(r.total)&&Number.isFinite(r.carry));
