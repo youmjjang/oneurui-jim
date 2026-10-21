@@ -211,6 +211,45 @@
       border-radius: 3px;
     }
 
+    .capture-bar.tabbed {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 12px;
+    }
+
+    .capture-tabs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .capture-tab-btn {
+      background: #eef5f1;
+      border: 1px solid #c2dbcd;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .capture-tab-btn:hover {
+      background: #d8ecdf;
+    }
+
+    .capture-tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 6px rgba(33, 78, 59, 0.25);
+    }
+
     /* 모달 캡처 전용 프레임 (Slide 8 등: 모달 전체가 잘림 없이 중앙 배치) */
     .capture-frame.contain-modal {
       align-items: center;
@@ -722,8 +761,8 @@
         </div>
 
         <div class="capture-frame scrollable">
-          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">오늘의 짐 - 웹 서비스 메인 화면 (마우스 휠 스크롤 가능)</span></div>
-          <img src="screenshots/screen_01_planner.png" alt="오늘의 짐 웹 서비스 메인 화면" class="zoomable">
+          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">오늘의 짐 - 전체 일정 기반 보관소 추천 및 암호화 티켓 관리 통합 화면</span></div>
+          <img src="screenshots/deck_02_results_daytime.png" alt="오늘의 짐 일정 기반 보관소 추천 및 보안 티켓 관리 통합 화면" class="zoomable">
         </div>
       </div>
     </div>
@@ -899,9 +938,18 @@
           </div>
         </div>
 
-        <div class="capture-frame scrollable">
-          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">실제 검색 결과 화면 (마우스 휠 스크롤 가능 | 1순위 추천 및 플랜 B)</span></div>
-          <img src="screenshots/screen_02_results.png" alt="실제 검색 결과 화면" class="zoomable">
+        <div class="capture-frame scrollable" id="s7Frame">
+          <div class="capture-bar tabbed">
+            <div style="display:flex;align-items:center;">
+              <span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span>
+            </div>
+            <div class="capture-tabs">
+              <button type="button" class="capture-tab-btn active" id="tabS7Daytime" onclick="selectS7Tab('daytime', event)">☀️ 주간 최적 추천 (성수역 1위 & 플랜 B)</button>
+              <button type="button" class="capture-tab-btn" id="tabS7Curfew" onclick="selectS7Tab('curfew', event)">🚨 심야 24:00 마감 경고 (자정 회수 시)</button>
+            </div>
+          </div>
+          <img id="imgS7Daytime" src="screenshots/deck_02_results_daytime.png" alt="주간 성수역 1순위 추천 및 플랜 B 화면" class="zoomable">
+          <img id="imgS7Curfew" src="screenshots/deck_03_results_curfew.png" alt="심야 역사 셔터 마감(24:00) 짐 감금 위험 경고 화면" class="zoomable" style="display:none;">
         </div>
       </div>
     </div>
@@ -913,26 +961,27 @@
       </div>
       <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">티켓을 만들고, 확인하고, 종료합니다</h2>
       
-      <div class="content-grid" style="grid-template-columns: repeat(3, 1fr); gap: 16px;">
-        <div class="capture-frame contain-modal">
-          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">1. [입력] 2개 보관함 & PIN 암호화 저장</span></div>
-          <div class="modal-img-wrap">
-            <img src="screenshots/screen_03_vault_modal.png" alt="보안 금고 다중 보관함 입력 모달" class="zoomable" data-modal="true">
+      <div class="content-grid" style="grid-template-columns: repeat(2, 1fr); gap: 18px;">
+        <div class="capture-frame scrollable" id="s8LeftFrame">
+          <div class="capture-bar tabbed">
+            <div style="display:flex;align-items:center;">
+              <span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span>
+            </div>
+            <div class="capture-tabs">
+              <button type="button" class="capture-tab-btn active" id="tabS8Stored" onclick="selectS8Tab('stored', event)">2. [보관] 암호화 티켓 (마스킹)</button>
+              <button type="button" class="capture-tab-btn" id="tabS8Input" onclick="selectS8Tab('input', event)">1. [입력] 2개 보관함 & PIN</button>
+            </div>
           </div>
+          <img id="imgS8Stored" src="screenshots/deck_04_vault_stored_full.png" alt="기기 내 안전 암호화 보관 티켓 (전체 화면)" class="zoomable">
+          <img id="imgS8Input" src="screenshots/deck_03b_vault_input_full.png" alt="다중 보관함 및 PIN 암호화 입력 (전체 화면)" class="zoomable" style="display:none;">
         </div>
 
-        <div class="capture-frame contain-modal">
-          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">2. [보관] 비밀번호 마스킹 보호 & 회수 버튼</span></div>
-          <div class="modal-img-wrap">
-            <img src="screenshots/screen_04_vault_stored.png" alt="암호화 안전 보관 중 티켓 (비밀번호 마스킹)" class="zoomable" data-modal="true">
+        <div class="capture-frame scrollable">
+          <div class="capture-bar">
+            <span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">3. [종료] 회수 완료 후 디지털 영구 파기 영수증</span>
           </div>
-        </div>
-
-        <div class="capture-frame contain-modal">
-          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">3. [종료] 회수 완료 후 난수 소거 파기 영수증</span></div>
-          <div class="modal-img-wrap">
-            <img src="screenshots/screen_05_receipt_modal.png" alt="짐 회수 완료 및 파기 영수증 모달" class="zoomable" data-modal="true">
-          </div>
+          <img src="screenshots/deck_05_vault_receipt_full.png" alt="짐 회수 완료 및 영구 파기 영수증 (전체 화면)" class="zoomable">
         </div>
       </div>
     </div>
@@ -1041,10 +1090,10 @@
       3: {
         text: `이 두 가지 문제를 함께 해결하기 위해 저희 팀이 만든 서비스가 바로 ‘오늘의 짐’입니다.
 
-화면 우측의 실제 서비스 메인 화면처럼, 출발지와 가고 싶은 방문지, 최종 숙소를 넣으면 전체 일정에 딱 맞는 보관소를 추천합니다. 그리고 짐을 맡긴 뒤 받은 비밀번호는 브라우저 안의 암호화 티켓으로 안전하게 관리합니다.
+화면처럼 출발지와 방문지를 넣으면 일정에 맞춘 최적의 보관소를 추천해 줄 뿐만 아니라, 보관소 카드 안의 버튼을 통해 비밀번호를 브라우저 암호화 티켓으로 즉시 안전하게 보관할 수 있습니다.
 
 보관함을 찾는 순간부터 짐을 회수하고 기록을 지우는 순간까지 모든 과정을 하나로 매끄럽게 연결한 서비스입니다.`,
-        cue: `화면 조작: 좌측 해결 포인트와 우측 웹 메인 화면 캡처를 가리킨 뒤 4번 슬라이드로 넘깁니다.`
+        cue: `화면 조작: 좌측의 2대 해결 포인트와 우측의 추천 및 보안 티켓 관리 통합 화면을 가리킨 뒤 4번 슬라이드로 넘깁니다.`
       },
       4: {
         text: `첫 번째 핵심 기능은 '캐리 타임(Carry Time)' 최소화 알고리즘입니다. 캐리 타임은 말 그대로 ‘짐을 손에 들고 걷는 시간’입니다.
@@ -1076,22 +1125,20 @@
       7: {
         text: `화면에 보시는 캡처가 실제 추천 알고리즘의 실행 결과입니다.
 
-출발지에 서울역, 방문지에 성수 카페거리, 최종 숙소에 강남역을 넣었을 때, 시스템은 1순위로 '성수역' 보관소를 추천했습니다.
+출발지에 서울역, 방문지에 성수 카페거리, 최종 숙소에 강남역을 넣었을 때, 시스템은 1순위로 '성수역' 보관소를 추천합니다.
 
-많은 여행자가 무심코 출발역인 서울역에 짐을 넣지만, 방문지이자 환승 길목인 성수역에 맡기면 하루 종일 짐을 손에 들고 걷는 '캐리 타임'을 32분이나 대폭 줄일 수 있습니다.
+많은 여행자가 무심코 출발역인 서울역에 짐을 넣지만, 방문지이자 환승 길목인 성수역에 바로 맡기면 하루 종일 짐을 손에 들고 걷는 시간을 32분이나 대폭 줄일 수 있습니다. 만차 시에는 화면에 보이듯 인근 건대입구역(플랜 B)을 이용할 수 있습니다.
 
-우측 카드에서 보시는 것처럼, 자정 24시 역사 셔터 마감 전에 짐을 찾을 수 있도록 심야 주의 배지를 띄워주고, 만약 현장이 만차일 경우 바로 인근 대체역으로 연결하는 플랜 B까지 화면 안에서 함께 제공합니다.`,
-        cue: `화면 조작: 좌측 1순위 성수역 추천 결과와 우측의 심야 마감 주의 배지 및 대체역 카드를 포인터로 짚으며 설명한 뒤 8번 슬라이드로 넘깁니다.`
+또한, 화면 상단의 심야 탭처럼 자정 무렵에 짐을 찾는 일정일 때는, 지하철 역사 셔터 마감(24:00)에 짐이 갇히지 않도록 '심야 셔터 마감 경고 배지'를 따로 띄워 안전한 시간 내 회수를 안내합니다.`,
+        cue: `화면 조작: 1순위 성수역 주간 추천 결과와 플랜 B를 설명한 뒤, 상단 탭을 눌러 별도의 심야 24:00 마감 경고 화면을 보여주고 8번 슬라이드로 넘깁니다.`
       },
       8: {
-        text: `다음은 보관함 비밀번호를 안전하게 지켜주는 보안 티켓 기능입니다. 슬라이드의 세 가지 화면으로 설명드리겠습니다.
+        text: `다음은 보관함 비밀번호를 안전하게 지켜주는 보안 티켓 기능입니다. 슬라이드의 전체 화면 캡처로 설명드리겠습니다.
 
-첫 번째 화면처럼 동행인의 짐까지 함께 맡길 때는 보관함을 여러 개 선택할 수 있습니다. 사물함 번호와 비밀번호, 개인 PIN을 입력해 저장하면 즉시 브라우저 안에서 암호화 티켓이 만들어집니다.
+동행인의 짐까지 여러 보관함을 등록하면, 화면 좌측처럼 발급된 티켓의 비밀번호는 평소 마스킹(••••••)되어 주변 시선을 원천 차단하고, 본인의 PIN을 입력해야만 확인할 수 있습니다.
 
-가운데 화면처럼 발급된 티켓의 비밀번호는 평소 마스킹되어(••••••) 주변 시선을 차단하고, 본인의 PIN을 입력해야만 확인할 수 있습니다.
-
-일정을 마치고 짐을 찾은 뒤 '회수 완료'를 누르면, 오른쪽 화면처럼 저장된 모든 데이터가 메모리와 브라우저 저장소에서 128바이트 난수로 덮어씌워져 영구 소거되고 파기 영수증이 발급됩니다. 서버에 어떤 흔적도 남기지 않는 완벽한 제로 지식 보안 라이프사이클입니다.`,
-        cue: `화면 조작: 1.[다중 보관함 입력] → 2.[마스킹 보관 티켓] → 3.[회수 완료 파기 영수증] 순서대로 세 화면을 짚으며 설명한 뒤 9번 슬라이드로 넘깁니다.`
+일정을 마치고 짐을 찾은 뒤 '짐 회수 완료 및 기록 삭제'를 누르면, 화면 우측처럼 저장된 모든 데이터가 브라우저 저장소에서 128바이트 난수로 덮어씌워져 영구 소거되고 파기 영수증이 발급됩니다. 서버에 어떤 흔적도 남기지 않는 완벽한 제로 지식 보안 라이프사이클입니다.`,
+        cue: `화면 조작: 좌측의 마스킹 암호화 티켓 전체 화면과 우측의 회수 완료 파기 영수증 화면을 차례대로 짚으며 설명한 뒤 9번 슬라이드로 넘깁니다.`
       },
       9: {
         text: `여행에서 짐은 이동의 피로를 만들고, 보관함 비밀번호는 또 하나의 관리 부담이 됩니다.
@@ -1183,12 +1230,55 @@
       }, 200);
     }
 
+    // 슬라이드 7 탭 제어 (주간 최적 추천 vs 심야 24:00 마감 경고)
+    function selectS7Tab(tab, e) {
+      if (e) e.stopPropagation();
+      const imgDay = document.getElementById('imgS7Daytime');
+      const imgCur = document.getElementById('imgS7Curfew');
+      const tabDay = document.getElementById('tabS7Daytime');
+      const tabCur = document.getElementById('tabS7Curfew');
+      if (tab === 'daytime') {
+        if (imgDay) imgDay.style.display = 'block';
+        if (imgCur) imgCur.style.display = 'none';
+        if (tabDay) tabDay.classList.add('active');
+        if (tabCur) tabCur.classList.remove('active');
+      } else {
+        if (imgDay) imgDay.style.display = 'none';
+        if (imgCur) imgCur.style.display = 'block';
+        if (tabDay) tabDay.classList.remove('active');
+        if (tabCur) tabCur.classList.add('active');
+      }
+    }
+
+    // 슬라이드 8 탭 제어 (2. 암호화 보관 티켓 vs 1. 2개 보관함 입력)
+    function selectS8Tab(tab, e) {
+      if (e) e.stopPropagation();
+      const imgStored = document.getElementById('imgS8Stored');
+      const imgInput = document.getElementById('imgS8Input');
+      const tabStored = document.getElementById('tabS8Stored');
+      const tabInput = document.getElementById('tabS8Input');
+      if (tab === 'stored') {
+        if (imgStored) imgStored.style.display = 'block';
+        if (imgInput) imgInput.style.display = 'none';
+        if (tabStored) tabStored.classList.add('active');
+        if (tabInput) tabInput.classList.remove('active');
+      } else {
+        if (imgStored) imgStored.style.display = 'none';
+        if (imgInput) imgInput.style.display = 'block';
+        if (tabStored) tabStored.classList.remove('active');
+        if (tabInput) tabInput.classList.add('active');
+      }
+    }
+
     // 캡처 프레임 클릭 시 원본 이미지 확대
     document.querySelectorAll('.capture-frame').forEach(frame => {
-      frame.addEventListener('click', () => {
-        const img = frame.querySelector('img');
+      frame.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('.capture-tabs')) return;
+        const visibleImg = Array.from(frame.querySelectorAll('img')).find(img => img.style.display !== 'none');
+        const img = visibleImg || frame.querySelector('img');
         const barSpan = frame.querySelector('.capture-bar span:last-child');
-        const title = barSpan ? barSpan.textContent.trim() : (img?.alt || '화면 캡처 원본');
+        const activeTab = frame.querySelector('.capture-tab-btn.active');
+        const title = activeTab ? activeTab.textContent.trim() : (img?.alt || barSpan?.textContent.trim() || '화면 캡처 원본');
         const isModal = img?.dataset?.modal === 'true';
         if (img && img.src) {
           openLightbox(img.src, title, isModal);
