@@ -10,6 +10,28 @@ function initCustomDropdowns() {
     const select = wrap.querySelector('select');
     if (!select || wrap.querySelector('.custom-dropdown-panel')) return;
 
+    if (['startSelect', 'visitSelect', 'endSelect'].includes(select.id)) {
+      const initial = select.value === '__DIRECT_INPUT__' ? '' : select.value;
+      select.hidden = true;
+      select.required = false;
+      wrap.classList.add('inline-direct-mode', 'station-search-wrap');
+      wrap.querySelector('.custom-select-arrow')?.remove();
+      const input = document.createElement('input');
+      input.type = 'search';
+      input.id = select.id + 'Search';
+      input.className = 'custom-select-inline-input station-search-input';
+      input.placeholder = '역 또는 장소 검색 (예: 성수역, 카페, 주소)';
+      input.autocomplete = 'off';
+      input.value = initial === 'SAME_AS_START' ? '' : initial;
+      if(select.id === 'endSelect') input.placeholder = '최종 목적지 검색 · 비우면 출발지로 돌아와요';
+      input.setAttribute('aria-label', select.id === 'startSelect' ? '출발 위치 검색' : select.id === 'visitSelect' ? '방문 장소 검색' : '최종 목적지 검색');
+      input.addEventListener('input', () => select.dispatchEvent(new Event('change', {bubbles:true})));
+      wrap.appendChild(input);
+      attachPlaceSuggestions(input, select, wrap);
+
+      document.querySelector('label[for="'+select.id+'"]').htmlFor = input.id;
+      return;
+    }
     // 네이티브 select 은닉
     select.classList.add('custom-select-native-hidden');
 
@@ -185,7 +207,7 @@ function getFieldValue(selectId) {
   const wrap = sel.closest('.custom-select-wrap');
   if (wrap && wrap.classList.contains('inline-direct-mode')) {
     const inp = wrap.querySelector('.custom-select-inline-input');
-    return inp ? inp.value.trim() : '';
+    return inp ? (inp.value.trim().replace(' · ', ' ') || (selectId === 'endSelect' ? 'SAME_AS_START' : '')) : ''; 
   }
   return (sel.value === '__DIRECT_INPUT__') ? '' : sel.value;
 }
@@ -199,6 +221,11 @@ function setFieldValue(selectId, val) {
     return;
   }
 
+  if (wrap.classList.contains('station-search-wrap')) {
+    wrap.querySelector('.station-search-input').value = val === 'SAME_AS_START' ? '' : val;
+    sel.dispatchEvent(new Event('change', {bubbles:true}));
+    return;
+  }
   const optionExists = Array.from(sel.options).some(o => o.value === val && o.value !== '__DIRECT_INPUT__');
   if (optionExists) {
     wrap.classList.remove('inline-direct-mode');
@@ -244,34 +271,7 @@ const REGION_PRICES = {
   ALL: { S: 2200, M: 3300, L: 4400, label: '전국 표준' }
 };
 
-function updatePricesByRegion() {
-  const regionVal = getFieldValue('regionSelect');
-  let regKey = 'SEOUL';
-  if (regionVal === 'BUSAN' || regionVal.includes('부산')) {
-    regKey = 'BUSAN';
-  } else if (regionVal === 'DAEGU' || regionVal.includes('대구')) {
-    regKey = 'DAEGU';
-  } else if (regionVal === 'DAEJEON' || regionVal.includes('대전')) {
-    regKey = 'DAEJEON';
-  } else if (regionVal === 'GWANGJU' || regionVal.includes('광주')) {
-    regKey = 'GWANGJU';
-  } else if (regionVal === 'AIRPORT' || regionVal.includes('공항')) {
-    regKey = 'AIRPORT';
-  } else if (regionVal === 'RAILWAY' || regionVal.includes('철도') || regionVal.includes('KTX') || regionVal.includes('SRT')) {
-    regKey = 'RAILWAY';
-  } else if (regionVal === 'ALL' || regionVal.includes('전국')) {
-    regKey = 'ALL';
-  }
-
-  const p = REGION_PRICES[regKey] || REGION_PRICES.ALL;
-
-  if ($('regionPriceNotice')) {
-    $('regionPriceNotice').textContent = `${p.label} (4시간)`;
-  }
-  if ($('priceS')) $('priceS').textContent = `4시간 ${p.S.toLocaleString()}원`;
-  if ($('priceM')) $('priceM').textContent = `4시간 ${p.M.toLocaleString()}원`;
-  if ($('priceL')) $('priceL').textContent = `4시간 ${p.L.toLocaleString()}원`;
-}
+function updatePricesByRegion() {if($('regionPriceNotice'))$('regionPriceNotice').textContent='시설별 원본 요금 확인';for(const id of ['priceS','priceM','priceL'])if($(id))$(id).textContent='시설마다 다름';}
 
 // -------------------------------------------------------------------
 // 3. 맞춤 포레스트 그린 날짜 & 시각 피커 시스템 (Chromium 블루 원천 제거)
@@ -1180,7 +1180,7 @@ $('plannerForm').onsubmit = async e => {
                 <div class="card-title">
                   <div class="card-tags">
                     <span class="tag ${isBest ? 'recommend' : ''}">${isBest ? '추천 1위' : '#' + (index + 1)}</span>
-                    <span class="tag">${l.location.includes('개찰구 안') ? '개찰구 안쪽' : '개찰구 밖 대합실'}</span>
+                    <span class="tag">${l.location.includes('안쪽') ? '개찰구 안쪽 여부 확인' : '출입구·개찰구 확인 필요'}</span>
                     <span class="tag" style="font-family:monospace;">${esc(l.id)}</span>
                   </div>
                   <h3>${esc(l.name)}</h3>
@@ -1198,29 +1198,26 @@ $('plannerForm').onsubmit = async e => {
               <div class="metrics">
                 <div class="metric">
                   <small>전체 이동시간</small>
-                  <strong>${formatMinutes(l.total)}</strong>
+                  <strong>${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</strong>
                   <small class="note">출발→보관→방문→회수</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
-                  <strong style="color:var(--primary);">${formatMinutes(l.carry)}</strong>
+                  <strong style="color:var(--primary);">${l.carry === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.carry)}</strong>
                   <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
-                  <small>설치 칸수</small>
-                  <strong>${esc(l.available === null ? '-' : l.available + '칸')}</strong>
-                  <small class="note">정직한 총 수량</small>
+                  <small>실시간 빈자리</small>
+                  <strong>${esc(l.available == null ? '미제공' : l.available + '칸')}</strong>
+                  <small class="note">설치수량과 달라요</small>
                 </div>
               </div>
 
-              <div class="plan-b-card">
-                <strong>만차 대비 대안:</strong> ${esc(l.planB?.name || '인근 보관소')} · ${esc(l.planB?.tip || '현장 안내')}
-              </div>
-
+              <div class="plan-b-card"><strong>설치수량(빈자리 아님):</strong> ${esc(l.capacityText || '미제공')}<br><small>자료 기준일: ${esc(l.referenceDate || '미제공')} · ${esc(l.source || '')} · ${l.coordinatePrecision === 'station' ? '역 대표 좌표 기준' : '시설 위치 기준'}</small></div>
               ${l.details?.length ? l.details.map(x => `
                 <div style="font-size:12px;background:var(--surface-sub);padding:10px 14px;border-radius:8px;margin:8px 0;line-height:1.6;">
                   <strong>${esc(x.stlckKndNm)}</strong> · ${esc(x.utztnCrgExpln || '기본 요금')} (${esc(x.addCrgExpln || '')})<br>
-                  <span style="color:var(--text-sub);font-size:11px;">규격: 가로 ${esc(x.stlckWdthLenExpln || '450mm')} × 높이 ${esc(x.stlckHgtExpln || '600mm')} × 깊이 ${esc(x.stlckDpthExpln || '500mm')}</span>
+                  <span style="color:var(--text-sub);font-size:11px;">규격: 가로 ${esc(x.stlckWdthLenExpln || '미제공')} × 높이 ${esc(x.stlckHgtExpln || '미제공')} × 깊이 ${esc(x.stlckDpthExpln || '미제공')}</span>
                 </div>
               `).join('') : ''}
 
@@ -1267,3 +1264,20 @@ setCurrentTimes();
 updatePricesByRegion();
 renderRecentChips();
 updateVaultBadge();
+
+
+// Kakao keyword autocomplete. Requests go through the server; credentials stay server-side.
+function attachPlaceSuggestions(input, select, wrap) {
+  const list=document.createElement('div');list.className='place-suggestions';list.id=input.id+'Suggestions';list.setAttribute('role','listbox');list.hidden=true;wrap.appendChild(list);
+  input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-controls',list.id);input.setAttribute('aria-expanded','false');
+  let results=[],active=-1,composing=false,timer=null,controller=null,version=0;
+  function close(){clearTimeout(timer);controller?.abort();version++;list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');active=-1;}
+  function showPanel(html){list.innerHTML=html;list.hidden=false;input.setAttribute('aria-expanded','true');}
+  function choose(i){const p=results[i];if(!p)return;input.value=p.name+' · '+p.address;input.dataset.placeId=p.id;close();select.dispatchEvent(new Event('change',{bubbles:true}));input.focus();}
+  function highlight(){list.querySelectorAll('[role="option"]').forEach((e,i)=>{e.classList.toggle('active',i===active);e.setAttribute('aria-selected',String(i===active));});if(active>=0){input.setAttribute('aria-activedescendant',list.id+'-'+active);list.children[active]?.scrollIntoView({block:'nearest'});}}
+  async function lookup(q,seq){const requestController=new AbortController();controller=requestController;const timeout=setTimeout(()=>requestController.abort('timeout'),10000);try{const r=await fetch('/api/places?q='+encodeURIComponent(q),{signal:requestController.signal});const d=await r.json();if(seq!==version)return;if(!r.ok)throw Error(d.error||'검색에 실패했어요.');results=d.places||[];active=-1;showPanel(results.length?results.map((p,i)=>'<button type="button" role="option" aria-selected="false" id="'+list.id+'-'+i+'" data-choice="'+i+'"><span class="suggestion-icon">⌕</span><span><strong>'+esc(p.name)+'</strong><small>'+esc(p.address)+'</small></span><span class="suggestion-arrow">↖</span></button>').join(''):'<div class="suggestion-empty">일치하는 장소를 찾지 못했어요.<br><small>정확한 장소 이름이나 주소로 다시 입력해주세요.</small></div>');}catch(e){if(seq!==version)return;showPanel('<div class="suggestion-empty">'+esc(requestController.signal.aborted?'검색이 지연되고 있어요. 글자를 다시 입력해 주세요.':e.message)+'</div>');}finally{clearTimeout(timeout);}}
+  function schedule(){clearTimeout(timer);controller?.abort();results=[];active=-1;input.removeAttribute('aria-activedescendant');const q=input.value.trim();const seq=++version;if(!q){close();return;}showPanel('<div class="suggestion-empty">장소 검색 중…</div>');timer=setTimeout(()=>lookup(q,seq),300);}
+  input.addEventListener('compositionstart',()=>{composing=true;});input.addEventListener('compositionend',()=>{composing=false;schedule();});input.addEventListener('input',()=>{delete input.dataset.placeId;schedule();});
+  input.addEventListener('keydown',e=>{if(e.isComposing||composing)return;if(e.key==='Escape'){close();return;}if((e.key==='ArrowDown'||e.key==='ArrowUp')&&!list.hidden&&results.length){e.preventDefault();active=e.key==='ArrowDown'?Math.min(active+1,results.length-1):Math.max(active-1,0);highlight();}else if(e.key==='Enter'&&!list.hidden&&active>=0){e.preventDefault();choose(active);}else if(e.key==='Tab')close();});
+  list.addEventListener('mousedown',e=>e.preventDefault());list.addEventListener('click',e=>{const b=e.target.closest('[data-choice]');if(b)choose(Number(b.dataset.choice));});input.addEventListener('blur',close);document.addEventListener('click',e=>{if(!wrap.contains(e.target))close();});
+}

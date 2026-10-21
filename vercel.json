@@ -20,7 +20,8 @@
   ],
   "functions": {
     "api/search.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "dist/data/**"
     }
   }
 }
