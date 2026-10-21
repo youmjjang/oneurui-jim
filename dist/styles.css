@@ -1768,3 +1768,11 @@ dialog::backdrop {
   align-items: center;
   margin-top: 14px;
 }
+
+/* Local preview: replace station selectors only. */
+.station-search-wrap>select[hidden]{display:none!important}.station-search-wrap>.station-search-input{display:block;width:100%;height:48px;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:0 14px;color:var(--text-main);font:inherit;font-size:13px;outline:none}.station-search-wrap>.station-search-input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px #214e3b0d}.station-search-wrap>.station-search-input::placeholder{color:var(--text-muted);font-size:12px}
+
+.station-search-wrap{position:relative}.place-suggestions{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:100;background:#fff;border:1px solid #dbe3d5;border-radius:12px;box-shadow:0 10px 30px #203e3220;max-height:320px;overflow-y:auto;padding:5px}.place-suggestions[hidden]{display:none}.place-suggestions>button{display:flex;align-items:center;gap:11px;text-align:left;width:100%;border:0;background:#fff;padding:11px 10px;border-radius:7px;cursor:pointer;color:var(--text-main);font:inherit}.place-suggestions>button:hover,.place-suggestions>button.active{background:#eef4e8}.place-suggestions strong{font-size:13px;display:block;font-weight:600}.place-suggestions small{font-size:10px;color:#8b9784;display:block;margin-top:3px}.suggestion-icon{font-size:23px;color:#7f9672}.suggestion-arrow{margin-left:auto;color:#a1ae98;font-size:16px}.suggestion-empty{font-size:12px;color:#728268;padding:16px;line-height:1.7}.form-group:focus-within{position:relative;z-index:30}
+
+/* Entire suggestion row is clickable; keep it above following fields. */
+.station-search-wrap:has(.place-suggestions:not([hidden])){z-index:2000}.form-group:has(.place-suggestions:not([hidden])){position:relative;z-index:2000}.place-suggestions{z-index:2001;isolation:isolate;overscroll-behavior:contain;touch-action:pan-y}.place-suggestions>button{position:relative;min-height:64px;box-sizing:border-box;touch-action:pan-y}.place-suggestions>button *{pointer-events:none}.place-suggestions>button:hover{background:#e8f0df}
