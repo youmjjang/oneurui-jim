@@ -468,14 +468,31 @@ function initCustomDatePicker() {
   $('dtApplyBtn').onclick = () => {
     const finalDate = getSelectedDateObj();
     const iso = formatIsoDateTime(finalDate);
-    const kor = formatKoreanDateTime(finalDate);
 
     if (activeDtTarget === 'deposit') {
       $('deposit').value = iso;
       $('depositDisplay').innerHTML = formatKoreanDateTimeHtml(finalDate);
+
+      // 맡길 시각이 찾을 시각보다 늦거나 같아지면 찾을 시각을 맡길 시각 + 4시간으로 자동 연동
+      const curPickupStr = $('pickup').value;
+      const curPickup = curPickupStr ? new Date(curPickupStr) : null;
+      if (!curPickup || curPickup <= finalDate) {
+        const autoPickup = new Date(finalDate.getTime() + 4 * 60 * 60 * 1000);
+        $('pickup').value = formatIsoDateTime(autoPickup);
+        $('pickupDisplay').innerHTML = formatKoreanDateTimeHtml(autoPickup);
+      }
     } else {
       $('pickup').value = iso;
       $('pickupDisplay').innerHTML = formatKoreanDateTimeHtml(finalDate);
+
+      // 찾을 시각이 맡길 시각보다 앞서면 맡길 시각을 찾을 시각 - 4시간으로 자동 연동
+      const curDepositStr = $('deposit').value;
+      const curDeposit = curDepositStr ? new Date(curDepositStr) : null;
+      if (curDeposit && curDeposit >= finalDate) {
+        const autoDeposit = new Date(finalDate.getTime() - 4 * 60 * 60 * 1000);
+        $('deposit').value = formatIsoDateTime(autoDeposit);
+        $('depositDisplay').innerHTML = formatKoreanDateTimeHtml(autoDeposit);
+      }
     }
     modal.close();
   };
