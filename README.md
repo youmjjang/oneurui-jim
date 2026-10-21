@@ -7,7 +7,6 @@
 
 - **팀명**: 오늘의 짐 팀
 - **팀원**: 김유미, 조원웅
-- **기획안 전문**: [`PROJECT_PROPOSAL.md`](./PROJECT_PROPOSAL.md)
 - **배포 저장소**: [https://github.com/youmjjang/oneurui-jim](https://github.com/youmjjang/oneurui-jim)
 
 ---
