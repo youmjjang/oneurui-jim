@@ -118,6 +118,17 @@
                 <option value="혜화">혜화역 (4호선 대학로)</option>
                 <option value="동대문역사문화공원">동대문역사문화공원역 (2·4·5호선)</option>
                 <option value="사당">사당역 (2·4호선)</option>
+                <option value="시청">시청역 (1·2호선)</option>
+                <option value="종로3가">종로3가역 (1·3·5호선)</option>
+                <option value="을지로입구">을지로입구역 (2호선)</option>
+                <option value="건대입구">건대입구역 (2·7호선)</option>
+                <option value="합정">합정역 (2·6호선)</option>
+                <option value="신도림">신도림역 (1·2호선)</option>
+                <option value="교대">교대역 (2·3호선)</option>
+                <option value="이태원">이태원역 (6호선)</option>
+                <option value="청량리">청량리역 (1호선/경의중앙/KTX)</option>
+                <option value="제기동">제기동역 (1호선)</option>
+                <option value="동대문">동대문역 (1·4호선)</option>
               </optgroup>
               <optgroup label="부산 도시철도 주요 역">
                 <option value="부산역">부산역 (부산1호선/KTX)</option>
@@ -125,6 +136,8 @@
                 <option value="해운대">해운대역 (부산2호선 해수욕장)</option>
                 <option value="광안">광안역 (부산2호선 광안리)</option>
                 <option value="남포">남포역 (부산1호선 자갈치/BIFF)</option>
+                <option value="센텀시티">센텀시티역 (부산2호선)</option>
+                <option value="사상">사상역 (부산2호선/경전철)</option>
               </optgroup>
               <optgroup label="대구·경북 도시철도">
                 <option value="반월당">반월당역 (대구 1·2호선 환승)</option>
@@ -167,6 +180,7 @@
             </select>
             <span class="custom-select-arrow">▼</span>
           </div>
+          <div id="geoNearestBadge" class="geo-nearest-badge" style="display:none;" role="status" aria-live="polite"></div>
         </div>
 
         <div id="routeFields">
@@ -302,11 +316,10 @@
           <div class="field-header">
             <label class="field-label" for="priority">추천 정렬 기준</label>
           </div>
-          <div class="custom-select-wrap" data-placeholder="정렬 키워드 직접 입력 (예: 짐 최소, 이동시간 최소 등)">
+          <div class="custom-select-wrap">
             <select id="priority" class="custom-select">
               <option value="total" selected>전체 이동시간(우회 손실) 최소</option>
               <option value="carry">짐 들고 이동하는 시간 최소</option>
-              <option value="__DIRECT_INPUT__">✏️ 직접 입력...</option>
             </select>
             <span class="custom-select-arrow">▼</span>
           </div>

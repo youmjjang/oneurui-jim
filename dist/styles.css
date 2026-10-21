@@ -614,6 +614,26 @@ h1 {
   color: #fff;
 }
 
+.geo-nearest-badge {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #1b4332;
+  background: #f0f7f2;
+  border: 1px solid #c9d8c6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.geo-nearest-badge strong {
+  color: #0f291e;
+  font-weight: 700;
+}
+
 .date-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

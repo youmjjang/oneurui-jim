@@ -199,10 +199,24 @@ function setFieldValue(selectId, val) {
     return;
   }
 
-  const optionExists = Array.from(sel.options).some(o => o.value === val && o.value !== '__DIRECT_INPUT__');
-  if (optionExists) {
+  // 1. 일치하는 option 탐색 (정확한 value 일치 우선)
+  let targetOption = Array.from(sel.options).find(o => o.value === val && o.value !== '__DIRECT_INPUT__');
+
+  // 2. 완화된 정규화 매칭 (예: '반월당역' -> '반월당', '서울역(철도)' -> '서울역', '금남로4가역' -> '금남로')
+  if (!targetOption && typeof val === 'string') {
+    const clean = val.replace(/\(.*\)/, '').replace(/역$/, '').trim();
+    if (clean) {
+      targetOption = Array.from(sel.options).find(o => {
+        if (o.value === '__DIRECT_INPUT__') return false;
+        const optClean = o.value.replace(/\(.*\)/, '').replace(/역$/, '').trim();
+        return optClean === clean || o.value.includes(clean) || o.textContent.includes(clean);
+      });
+    }
+  }
+
+  if (targetOption) {
     wrap.classList.remove('inline-direct-mode');
-    sel.value = val;
+    sel.value = targetOption.value;
     syncSelectWrap(wrap, sel);
   } else {
     wrap.classList.add('inline-direct-mode');
@@ -568,8 +582,106 @@ const RECENT_KEY = 'oneurui_jim_recent_routes';
 const MAX_RECENT_ROUTES = 3; // 사용자가 요청한 적절한 갯수 제한 (화면 넘침 방지)
 
 let currentCoords = null;
+let nearestDetectedStation = null;
 
-// 📍 현재 위치 GPS 버튼 핸들러
+// -------------------------------------------------------------------
+// 전국 짐 보관소 공공데이터 기반 최인접 역사 탐색
+// -------------------------------------------------------------------
+const LOCKER_STATIONS = [
+  { station: '서울역', line: '1호선', region: '수도권(서울)', lat: 37.5562, lng: 126.9723, total: 96 },
+  { station: '용산', line: '1호선', region: '수도권(서울)', lat: 37.5298, lng: 126.9647, total: 68 },
+  { station: '청량리', line: '1호선', region: '수도권(서울)', lat: 37.5804, lng: 127.0459, total: 17 },
+  { station: '제기동', line: '1호선', region: '수도권(서울)', lat: 37.5784, lng: 127.0359, total: 9 },
+  { station: '동대문', line: '1호선', region: '수도권(서울)', lat: 37.572, lng: 127.0119, total: 25 },
+  { station: '시청', line: '1호선', region: '수도권(서울)', lat: 37.5657, lng: 126.9772, total: 42 },
+  { station: '종로3가', line: '1호선', region: '수도권(서울)', lat: 37.5716, lng: 126.9918, total: 66 },
+  { station: '홍대입구', line: '2호선', region: '수도권(서울)', lat: 37.5575, lng: 126.9244, total: 58 },
+  { station: '강남', line: '2호선', region: '수도권(서울)', lat: 37.4979, lng: 127.0276, total: 72 },
+  { station: '성수', line: '2호선', region: '수도권(서울)', lat: 37.5446, lng: 127.0559, total: 44 },
+  { station: '잠실', line: '2호선', region: '수도권(서울)', lat: 37.5133, lng: 127.1001, total: 76 },
+  { station: '을지로입구', line: '2호선', region: '수도권(서울)', lat: 37.5661, lng: 126.9827, total: 60 },
+  { station: '건대입구', line: '2호선', region: '수도권(서울)', lat: 37.5404, lng: 127.0692, total: 50 },
+  { station: '신촌', line: '2호선', region: '수도권(서울)', lat: 37.5552, lng: 126.9368, total: 50 },
+  { station: '합정', line: '2호선', region: '수도권(서울)', lat: 37.5495, lng: 126.9137, total: 56 },
+  { station: '신도림', line: '2호선', region: '수도권(서울)', lat: 37.5088, lng: 126.8913, total: 76 },
+  { station: '사당', line: '2호선', region: '수도권(서울)', lat: 37.4765, lng: 126.9816, total: 72 },
+  { station: '고속터미널', line: '3호선', region: '수도권(서울)', lat: 37.5049, lng: 127.0049, total: 86 },
+  { station: '교대', line: '3호선', region: '수도권(서울)', lat: 37.4934, lng: 127.0142, total: 50 },
+  { station: '명동', line: '4호선', region: '수도권(서울)', lat: 37.5609, lng: 126.9863, total: 60 },
+  { station: '동대문역사문화공원', line: '4호선', region: '수도권(서울)', lat: 37.5656, lng: 127.009, total: 70 },
+  { station: '혜화', line: '4호선', region: '수도권(서울)', lat: 37.5823, lng: 127.0018, total: 42 },
+  { station: '여의도', line: '5호선', region: '수도권(서울)', lat: 37.5216, lng: 126.9242, total: 70 },
+  { station: '이태원', line: '6호선', region: '수도권(서울)', lat: 37.5345, lng: 126.9946, total: 42 },
+  { station: '부산역', line: '부산1호선', region: '영남권(부산)', lat: 35.1152, lng: 129.0422, total: 80 },
+  { station: '서면', line: '부산1·2호선', region: '영남권(부산)', lat: 35.1578, lng: 129.0593, total: 95 },
+  { station: '해운대', line: '부산2호선', region: '영남권(부산)', lat: 35.1631, lng: 129.1585, total: 70 },
+  { station: '광안', line: '부산2호선', region: '영남권(부산)', lat: 35.1579, lng: 129.1132, total: 40 },
+  { station: '남포', line: '부산1호선', region: '영남권(부산)', lat: 35.0979, lng: 129.0348, total: 55 },
+  { station: '센텀시티', line: '부산2호선', region: '영남권(부산)', lat: 35.1689, lng: 129.1317, total: 60 },
+  { station: '사상', line: '부산2호선', region: '영남권(부산)', lat: 35.1627, lng: 128.9856, total: 50 },
+  { station: '서울역(철도)', line: 'KTX/경부선', region: '전국(KTX/철도)', lat: 37.5547, lng: 126.9707, total: 110 },
+  { station: '용산역(철도)', line: 'KTX/호남선', region: '전국(KTX/철도)', lat: 37.5298, lng: 126.9647, total: 85 },
+  { station: '대전역', line: 'KTX/경부선', region: '전국(KTX/철도)', lat: 36.3323, lng: 127.4342, total: 60 },
+  { station: '동대구역', line: 'KTX/경부선', region: '전국(KTX/철도)', lat: 35.8799, lng: 128.6285, total: 90 },
+  { station: '부산역(철도)', line: 'KTX/경부선', region: '전국(KTX/철도)', lat: 35.1152, lng: 129.0422, total: 105 },
+  { station: '광주송정역', line: 'KTX/호남선', region: '전국(KTX/철도)', lat: 35.1375, lng: 126.7915, total: 45 },
+  { station: '수서역', line: 'SRT/수서고속', region: '전국(KTX/철도)', lat: 37.4878, lng: 127.1017, total: 75 },
+  { station: '반월당역', line: '대구1·2호선', region: '대구·경북', lat: 35.8655, lng: 128.5934, total: 48 },
+  { station: '중앙로역', line: '대구1호선', region: '대구·경북', lat: 35.8698, lng: 128.5942, total: 28 },
+  { station: '동대구역(도시철도)', line: '대구1호선', region: '대구·경북', lat: 35.8778, lng: 128.6285, total: 36 },
+  { station: '서문시장역', line: '대구3호선', region: '대구·경북', lat: 35.8694, lng: 128.5815, total: 20 },
+  { station: '대전역(도시철도)', line: '대전1호선', region: '대전·충청', lat: 36.3315, lng: 127.4332, total: 32 },
+  { station: '유성온천역', line: '대전1호선', region: '대전·충청', lat: 36.3537, lng: 127.3414, total: 22 },
+  { station: '서대전네거리역', line: '대전1호선', region: '대전·충청', lat: 36.3228, lng: 127.4121, total: 20 },
+  { station: '정부청사역', line: '대전1호선', region: '대전·충청', lat: 36.3575, lng: 127.3814, total: 24 },
+  { station: '광주송정역(도시철도)', line: '광주1호선', region: '광주·호남', lat: 35.1378, lng: 126.7915, total: 28 },
+  { station: '문화전당역', line: '광주1호선', region: '광주·호남', lat: 35.1469, lng: 126.9197, total: 24 },
+  { station: '금남로4가역', line: '광주1호선', region: '광주·호남', lat: 35.1501, lng: 126.9135, total: 20 },
+  { station: '상무역', line: '광주1호선', region: '광주·호남', lat: 35.1504, lng: 126.8529, total: 24 },
+  { station: '인천공항 제1여객터미널', line: '공항철도', region: '전국 공항', lat: 37.4485, lng: 126.4528, total: 72 },
+  { station: '인천공항 제2여객터미널', line: '공항철도', region: '전국 공항', lat: 37.4687, lng: 126.4332, total: 56 },
+  { station: '김포공항', line: '5·9호선/공항철도', region: '전국 공항', lat: 37.5623, lng: 126.8013, total: 48 },
+  { station: '김해공항', line: '부산김해경전철', region: '전국 공항', lat: 35.1732, lng: 128.9464, total: 36 },
+  { station: '제주국제공항', line: '제주공항셔틀', region: '전국 공항', lat: 33.5065, lng: 126.493, total: 44 },
+  { station: '오송역', line: '경부·호남선', region: '전국(KTX/철도)', lat: 36.6202, lng: 127.3268, total: 28 },
+  { station: '천안아산역', line: '경부고속선', region: '전국(KTX/철도)', lat: 36.7946, lng: 127.1045, total: 32 },
+  { station: '익산역', line: '호남·전라선', region: '전국(KTX/철도)', lat: 35.9404, lng: 126.9464, total: 24 },
+  { station: '강릉역', line: '강릉선', region: '전국(KTX/철도)', lat: 37.7644, lng: 128.8996, total: 36 },
+  { station: '여수엑스포역', line: '전라선', region: '전국(KTX/철도)', lat: 34.7528, lng: 127.7458, total: 26 },
+  { station: '순천역', line: '전라·경전선', region: '전국(KTX/철도)', lat: 34.9458, lng: 127.5034, total: 22 }
+];
+
+function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+let cachedLockerStations = null;
+async function getLockerStations() {
+  if (cachedLockerStations && cachedLockerStations.length > 0) return cachedLockerStations;
+  try {
+    const res = await fetch('/data/전국_통합_물품보관함_공공데이터.json');
+    if (res.ok) {
+      const json = await res.json();
+      if (json && Array.isArray(json.data) && json.data.length > 0) {
+        cachedLockerStations = json.data;
+        return cachedLockerStations;
+      }
+    }
+  } catch (e) {
+    // network fallback to built-in LOCKER_STATIONS
+  }
+  return LOCKER_STATIONS;
+}
+
+// 📍 현재 위치 GPS 버튼 핸들러 (현재 위치에서 가장 가까운 짐 보관소 역사 자동 반영)
 if ($('geoBtn')) {
   $('geoBtn').onclick = () => {
     if (!navigator.geolocation) {
@@ -577,33 +689,127 @@ if ($('geoBtn')) {
       return;
     }
     const btn = $('geoBtn');
+    const originalText = '📍 현재 위치';
     btn.textContent = '📍 위치 수신 중...';
     btn.disabled = true;
 
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        currentCoords = {
-          x: pos.coords.longitude,
-          y: pos.coords.latitude
-        };
-        btn.textContent = '📍 내 위치 확인됨 ✓';
-        btn.disabled = false;
-        btn.style.background = 'var(--primary)';
-        btn.style.color = '#ffffff';
+      async pos => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+        currentCoords = { x: userLng, y: userLat };
 
-        // 출발 위치 필드에 현재 위치 반영
-        setFieldValue('startSelect', '현재 위치 (GPS)');
+        // 1. 전국 짐 보관소 공공데이터에서 현재 위치와 최단 거리 역사 탐색
+        const stations = await getLockerStations();
+        let nearest = null;
+        let minDistance = Infinity;
+
+        for (const st of stations) {
+          if (!st.lat || !st.lng) continue;
+          const dist = calculateHaversineDistance(userLat, userLng, Number(st.lat), Number(st.lng));
+          if (dist < minDistance) {
+            minDistance = dist;
+            nearest = { ...st, distanceKm: dist };
+          }
+        }
+
+        if (nearest) {
+          nearestDetectedStation = nearest;
+          const distText = minDistance < 1
+            ? `${Math.round(minDistance * 1000)}m`
+            : `${minDistance.toFixed(1)}km`;
+
+          // 역사 명칭 정리 (예: '서울역(철도)' -> '서울역', '반월당역' -> '반월당')
+          const stationName = nearest.station.replace(/\(.*\)/, '').replace(/역$/, '').trim();
+          const stationDisplayName = stationName + (stationName.endsWith('공항') ? '' : '역');
+
+          // 2. 출발 위치에 가장 가까운 보관소 역사 자동 반영
+          setFieldValue('startSelect', nearest.station);
+
+          // 3. 해당 역사의 권역으로 자동 전환 및 지역 요금 연동
+          if (nearest.region) {
+            const regionCodeMap = {
+              '수도권(서울)': 'SEOUL',
+              '영남권(부산)': 'BUSAN',
+              '대구·경북': 'DAEGU',
+              '대전·충청': 'DAEJEON',
+              '광주·호남': 'GWANGJU',
+              '전국 공항': 'AIRPORT',
+              '전국(공항)': 'AIRPORT',
+              '전국(KTX/철도)': 'RAILWAY',
+              '전국 KTX·철도': 'RAILWAY'
+            };
+            const mappedRegion = regionCodeMap[nearest.region];
+            if (mappedRegion) {
+              setFieldValue('regionSelect', mappedRegion);
+              updatePricesByRegion();
+            }
+          }
+
+          // 4. UI 피드백: 버튼 텍스트 및 안내 뱃지 갱신
+          btn.textContent = `📍 ${stationDisplayName} (${distText})`;
+          btn.disabled = false;
+          btn.style.background = 'var(--primary)';
+          btn.style.color = '#ffffff';
+
+          let badge = $('geoNearestBadge');
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.id = 'geoNearestBadge';
+            badge.className = 'geo-nearest-badge';
+            const wrap = $('startSelect')?.closest('.form-group');
+            if (wrap) wrap.appendChild(badge);
+          }
+          if (badge) {
+            badge.style.display = 'flex';
+            badge.innerHTML = `<span>📍 현재 위치에서 가장 가까운 보관소: <strong>${esc(stationDisplayName)}</strong> (${esc(nearest.line || '')}, 약 ${esc(distText)} 거리)</span>`;
+          }
+        } else {
+          // 보관소 목록 매칭 실패 시 일반 GPS 반영 Fallback
+          btn.textContent = '📍 내 위치 확인됨 ✓';
+          btn.disabled = false;
+          btn.style.background = 'var(--primary)';
+          btn.style.color = '#ffffff';
+          setFieldValue('startSelect', '현재 위치 (GPS)');
+        }
       },
       err => {
-        btn.textContent = '📍 현재 위치';
+        btn.textContent = originalText;
         btn.disabled = false;
         let msg = '위치 정보를 가져올 수 없습니다.';
-        if (err.code === 1) msg = '브라우저 위치 정보 제공 권한이 차단되었습니다. 주소창 자물쇠 아이콘에서 위치 권한을 허용해주세요.';
+        if (err.code === 1) {
+          msg = '브라우저 위치 정보 제공 권한이 차단되었습니다. 주소창 좌측 자물쇠/설정 아이콘에서 위치 권한을 허용해주세요.';
+        } else if (err.code === 2) {
+          msg = '네트워크 또는 GPS 신호가 약해 위치를 확인할 수 없습니다.';
+        } else if (err.code === 3) {
+          msg = '위치 정보 수신 시간이 초과되었습니다. 다시 시도해주세요.';
+        }
         alert(msg);
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
-  }
+  };
+}
+
+// 사용자가 출발 위치를 수동 변경하면 GPS 안내 뱃지 및 버튼 복귀
+if ($('startSelect')) {
+  $('startSelect').addEventListener('change', () => {
+    const badge = $('geoNearestBadge');
+    if (badge && badge.style.display !== 'none' && nearestDetectedStation) {
+      const curVal = getFieldValue('startSelect');
+      const baseStation = nearestDetectedStation.station.replace(/\(.*\)/, '').replace(/역$/, '').trim();
+      if (!curVal.includes(baseStation)) {
+        badge.style.display = 'none';
+        currentCoords = null;
+        nearestDetectedStation = null;
+        if ($('geoBtn')) {
+          $('geoBtn').textContent = '📍 현재 위치';
+          $('geoBtn').style.background = '';
+          $('geoBtn').style.color = '';
+        }
+      }
+    }
+  });
 }
 
 function loadRecentRoutes() {
@@ -1139,7 +1345,7 @@ $('plannerForm').onsubmit = async e => {
     pickup: pickupVal
   };
 
-  if (currentCoords && (startVal.includes('현재 위치') || startVal.includes('내 위치'))) {
+  if (currentCoords) {
     q.coords = currentCoords;
   }
 

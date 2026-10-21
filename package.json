@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "build": "node --check dist/app.js"
+    "build": "node --check dist/app.js",
+    "sync:kric": "node scripts/sync-kric-lockers.mjs"
   },
   "engines": {
     "node": "24.x"
