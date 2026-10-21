@@ -302,6 +302,19 @@ function updatePricesByRegion() { if($('regionPriceNotice')) $('regionPriceNotic
 // -------------------------------------------------------------------
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+
+function formatKoreanDateTimeHtml(dateObj) {
+  const Y = dateObj.getFullYear();
+  const M = dateObj.getMonth() + 1;
+  const D = dateObj.getDate();
+  const w = WEEKDAYS[dateObj.getDay()];
+  const h = dateObj.getHours();
+  const m = String(dateObj.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? '오후' : '오전';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return '<span class="dt-date-part">' + Y + '. ' + M + '. ' + D + ' (' + w + ')</span><span class="dt-time-part">' + ampm + ' ' + String(displayH).padStart(2, '0') + ':' + m + '</span>';
+}
+
 function formatKoreanDateTime(dateObj) {
   const Y = dateObj.getFullYear();
   const M = dateObj.getMonth() + 1;
@@ -459,10 +472,10 @@ function initCustomDatePicker() {
 
     if (activeDtTarget === 'deposit') {
       $('deposit').value = iso;
-      $('depositDisplay').textContent = kor;
+      $('depositDisplay').innerHTML = formatKoreanDateTimeHtml(finalDate);
     } else {
       $('pickup').value = iso;
-      $('pickupDisplay').textContent = kor;
+      $('pickupDisplay').innerHTML = formatKoreanDateTimeHtml(finalDate);
     }
     modal.close();
   };
@@ -470,7 +483,7 @@ function initCustomDatePicker() {
 
 function openDtModal(target) {
   activeDtTarget = target;
-  $('dtPickerModalTitle').textContent = target === 'deposit' ? '📅 짐 맡길 시각 선택' : '🕒 짐 찾을 시각 선택';
+  $('dtPickerModalTitle').textContent = target === 'deposit' ? '🕒 짐 맡길 시각 선택' : '🕒 짐 찾을 시각 선택';
 
   const curVal = $(target).value;
   const base = curVal ? new Date(curVal) : new Date();
@@ -518,11 +531,11 @@ function updateDtPreview() {
 function setCurrentTimes() {
   const now = new Date();
   $('deposit').value = formatIsoDateTime(now);
-  $('depositDisplay').textContent = formatKoreanDateTime(now);
+  $('depositDisplay').innerHTML = formatKoreanDateTimeHtml(now);
 
   const later = new Date(now.getTime() + 4 * 60 * 60 * 1000);
   $('pickup').value = formatIsoDateTime(later);
-  $('pickupDisplay').textContent = formatKoreanDateTime(later);
+  $('pickupDisplay').innerHTML = formatKoreanDateTimeHtml(later);
 }
 
 $('nowTimeBtn').onclick = () => {

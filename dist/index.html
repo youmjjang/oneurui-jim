@@ -310,8 +310,11 @@
             <div class="date-input-wrap">
               <span class="date-sub-label">맡길 시각</span>
               <button type="button" id="depositBtn" class="custom-date-trigger">
-                <span class="date-icon">📅</span>
-                <span id="depositDisplay" class="date-display-text">2026. 10. 20 (화) 오후 08:00</span>
+                <span class="date-icon">🕒</span>
+                <span id="depositDisplay" class="date-display-text">
+                  <span class="dt-date-part">2026. 10. 20 (화)</span>
+                  <span class="dt-time-part">오후 08:00</span>
+                </span>
                 <span class="date-arrow">▼</span>
               </button>
               <input id="deposit" type="hidden" required>
@@ -320,7 +323,10 @@
               <span class="date-sub-label">찾을 시각</span>
               <button type="button" id="pickupBtn" class="custom-date-trigger">
                 <span class="date-icon">🕒</span>
-                <span id="pickupDisplay" class="date-display-text">2026. 10. 21 (수) 오전 12:00</span>
+                <span id="pickupDisplay" class="date-display-text">
+                  <span class="dt-date-part">2026. 10. 21 (수)</span>
+                  <span class="dt-time-part">오전 12:00</span>
+                </span>
                 <span class="date-arrow">▼</span>
               </button>
               <input id="pickup" type="hidden" required>
