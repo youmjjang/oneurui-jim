@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘의 짐 - 모의 해커톤 발표 슬라이드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/static/woff2/SUIT.css">
+  <style>
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
+      font-weight: 800;
+      font-style: normal;
+    }
+
+    :root {
+      --bg: #0f1f17;
+      --slide-bg: #ffffff;
+      --slide-sub: #f6f8f5;
+      --primary: #214e3b;
+      --primary-dark: #163629;
+      --primary-light: #eef5f1;
+      --accent: #d46b4f;
+      --accent-light: #fdf2ee;
+      --border: #e2e7df;
+      --text-main: #192b23;
+      --text-sub: #57685f;
+      --text-muted: #88978e;
+      --font-head: 'Paperlogy', 'SUIT', sans-serif;
+      --font-body: 'SUIT', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      word-break: keep-all;
+    }
+
+    /* 슬라이드 뷰포트 컨테이너 (16:9 비율 고정) */
+    .deck-container {
+      position: relative;
+      width: min(94vw, 1280px);
+      aspect-ratio: 16 / 9;
+      background: var(--slide-bg);
+      border-radius: 20px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      display: flex;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 50px 64px 60px;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      transform: scale(0.99);
+      background: var(--slide-bg);
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* 상단 슬라이드 헤더 */
+    .slide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      border-bottom: 1.5px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .slide-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(33, 78, 59, 0.15);
+    }
+
+    .slide-time {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .slide-title {
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+
+    .slide-subtitle {
+      font-size: 16px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    /* 본문 레이아웃 그리드 */
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      flex: 1;
+      align-items: center;
+    }
+
+    .content-full {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+      justify-content: center;
+    }
+
+    /* 포인트 카드 박스 */
+    .point-card {
+      background: var(--slide-sub);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .point-card.accent {
+      background: var(--accent-light);
+      border-color: #f7d5cc;
+    }
+
+    .point-card.highlight {
+      background: var(--primary-light);
+      border-color: #c9e0d4;
+    }
+
+    .point-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .point-desc {
+      font-size: 14.5px;
+      color: var(--text-main);
+      line-height: 1.6;
+    }
+
+    /* 이미지/캡처 프레임 */
+    .capture-frame {
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      max-height: 380px;
+      position: relative;
+      cursor: zoom-in;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .capture-frame:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px rgba(45, 90, 61, 0.16);
+      border-color: var(--primary);
+    }
+
+    .capture-frame::after {
+      content: "🔍 클릭하여 원본 확대";
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      padding: 6px 14px;
+      background: rgba(18, 32, 24, 0.88);
+      backdrop-filter: blur(6px);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 20px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      z-index: 2;
+    }
+
+    .capture-frame:hover::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .capture-bar {
+      height: 24px;
+      background: #eef2eb;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .capture-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd8c7;
+    }
+
+    .capture-frame img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    /* 4-Legs 다이어그램 */
+    .legs-diagram {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .leg-box {
+      border-radius: 14px;
+      padding: 18px 14px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1.5px solid transparent;
+    }
+
+    .leg-box.heavy {
+      background: #fdf2ee;
+      border-color: #f5cfc4;
+      color: #9a3412;
+    }
+
+    .leg-box.light {
+      background: #eef5f1;
+      border-color: #cde2d6;
+      color: #1b4d36;
+    }
+
+    .leg-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      align-self: center;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .leg-title {
+      font-size: 15px;
+      font-weight: 800;
+      font-family: var(--font-head);
+    }
+
+    .leg-status {
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    /* 표지 슬라이드 특화 스타일 */
+    .slide-cover {
+      background: linear-gradient(145deg, #163629 0%, #214e3b 60%, #2f6951 100%);
+      color: #ffffff;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      padding: 6px 18px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(4px);
+    }
+
+    .cover-title {
+      font-family: var(--font-head);
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 18px;
+      line-height: 1.2;
+    }
+
+    .cover-subtitle {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.85);
+      max-width: 680px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+      font-weight: 400;
+    }
+
+    .cover-meta {
+      display: flex;
+      gap: 20px;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
+      padding: 12px 28px;
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 999px;
+    }
+
+    .cover-meta strong {
+      color: #ffffff;
+    }
+
+    /* 하단 네비게이션 컨트롤 바 */
+    .deck-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: min(94vw, 1280px);
+      padding: 16px 20px;
+      color: #ffffff;
+      font-size: 14px;
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .slide-counter {
+      font-weight: 700;
+      color: #cbd8c7;
+      letter-spacing: 1px;
+    }
+
+    /* 발표자 대본 창 (P 누르면 하단에 토글) */
+    .speaker-notes-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 220px;
+      background: rgba(18, 32, 25, 0.96);
+      backdrop-filter: blur(12px);
+      border-top: 2px solid var(--primary);
+      color: #ffffff;
+      padding: 20px 40px;
+      overflow-y: auto;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 999;
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .speaker-notes-panel.open {
+      display: block;
+    }
+
+    .notes-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #7dd3a2;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .notes-script {
+      color: #e5ece7;
+      white-space: pre-wrap;
+    }
+
+    .notes-cue {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 10px;
+      background: rgba(212, 107, 79, 0.25);
+      border-left: 3px solid var(--accent);
+      color: #ffb8a5;
+      font-size: 12.5px;
+    }
+
+    /* 팝업 모달 이미지 줌 및 원본 라이트박스 */
+    .zoomable {
+      cursor: zoom-in;
+      transition: transform 0.2s;
+    }
+    .zoomable:hover {
+      transform: scale(1.015);
+    }
+
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0.22s ease;
+    }
+    .image-lightbox.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .lightbox-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 18, 14, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+    }
+    .lightbox-dialog {
+      position: relative;
+      z-index: 100000;
+      max-width: 95vw;
+      max-height: 94vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: scale(0.96);
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .image-lightbox.open .lightbox-dialog {
+      transform: scale(1);
+    }
+    .lightbox-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 18px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      color: #ffffff;
+      box-sizing: border-box;
+    }
+    .lightbox-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #f0f7f3;
+    }
+    .lightbox-hint {
+      font-size: 12px;
+      color: #9cb8a7;
+      font-weight: normal;
+    }
+    .lightbox-close-btn {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.32);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .lightbox-close-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: scale(1.04);
+    }
+    .lightbox-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .lightbox-body img {
+      max-width: 94vw;
+      max-height: calc(92vh - 65px);
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 25px 65px rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: #ffffff;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 슬라이드 덱 뷰포트 -->
+  <div class="deck-container">
+
+    <!-- 슬라이드 01: 표지 -->
+    <div class="slide slide-cover active" data-slide="1" data-title="오늘의 짐">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+        <h1 class="cover-title" style="font-size:68px;letter-spacing:-1.5px;margin-bottom:36px;">오늘의 짐</h1>
+        <div class="cover-meta">
+          <span>발표자: <strong>조원웅</strong></span>
+          <span>•</span>
+          <span>팀명: <strong>조미료</strong> (김유미, 조원웅)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 02: 여행자는 짐 때문에 두 번 불편합니다 -->
+    <div class="slide" data-slide="2" data-title="여행자는 짐 때문에 두 번 불편합니다">
+      <div class="slide-header" style="margin-bottom:18px;padding-bottom:10px;">
+        <span class="slide-tag">문제 정의</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:14px;margin-bottom:14px;">여행자는 짐 때문에 두 번 불편합니다</h2>
+      <p class="slide-subtitle" style="margin-bottom:26px;">역에 도착해 짐을 맡길 때 겪는 <strong>동선 낭비</strong>와, 짐을 맡긴 뒤에 남는 <strong>보안 사각지대</strong></p>
+      
+      <div class="content-grid">
+        <div class="point-card accent">
+          <div class="point-header">
+            <span>문제 1. 동선 낭비와 헛걸음</span>
+          </div>
+          <p class="point-desc">
+            • <strong>기존 지도 한계</strong>: 현재 위치 주변만 표시하여 하루 일정에 맞는 보관소 탐색 불가.<br>
+            • <strong>비효율 동선</strong>: 무작정 이동 후 짐 찾으러 40분씩 역주행하는 시간·체력 낭비 발생.<br>
+            • <strong>관광 통계</strong>: 여행객이 짐 운반으로 낭비하는 시간 하루 평균 45분~1시간 소진.
+          </p>
+        </div>
+
+        <div class="point-card">
+          <div class="point-header">
+            <span>문제 2. 평문 비번 노출과 도난 위험</span>
+          </div>
+          <p class="point-desc">
+            • <strong>평문 저장</strong>: 10명 중 6명이 메신저나 메모장에 <code>32번 / 비번 1024</code> 형태로 방치.<br>
+            • <strong>숄더 서핑</strong>: 지하철·카페에서 화면을 열 때 어깨 너머로 비밀번호 노출 위험.<br>
+            • <strong>범죄 심각성</strong>: 사물함 가로채기 피해 증가로 전 역사 도어락 OTP 전면 교체 추진.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 03: 보관소 추천부터 비밀번호 관리까지 한 번에 -->
+    <div class="slide" data-slide="3" data-title="보관소 추천부터 비밀번호 관리까지 한 번에">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">해결책 정의</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">보관소 추천부터 비밀번호 관리까지 한 번에</h2>
+      
+      <div class="content-grid">
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="point-card highlight">
+            <div class="point-header">
+              <span>1. 전체 일정 기반 최적 보관소 추천</span>
+            </div>
+            <p class="point-desc">
+              출발지, 방문지, 숙소를 입력하면 전체 동선에서<br>
+              짐 들고 걷는 시간을 최소화하는 보관소를 1순위 추천합니다.
+            </p>
+          </div>
+
+          <div class="point-card highlight">
+            <div class="point-header">
+              <span>2. 서버 없는 브라우저 암호화 티켓</span>
+            </div>
+            <p class="point-desc">
+              비밀번호를 외부 서버로 일절 전송하지 않고,<br>
+              브라우저 Web Crypto 금고에 암호화 보관해 도난을 방지합니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="capture-frame">
+          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">오늘의 짐 - 웹 서비스 메인 화면</span></div>
+          <img src="screenshots/screen_01_planner.png" alt="오늘의 짐 웹 서비스 메인 화면" class="zoomable">
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 04: 가장 가까운 곳보다, 짐을 덜 들고 걷는 곳 (4-Legs 모델) -->
+    <div class="slide" data-slide="4" data-title="가장 가까운 곳보다, 짐을 덜 들고 걷는 곳">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">핵심 기술 1</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">가장 가까운 곳보다, 짐을 덜 들고 걷는 곳</h2>
+      
+      <div class="content-full">
+        <div class="legs-diagram">
+          <div class="leg-box heavy">
+            <span class="leg-tag">Leg 1</span>
+            <div class="leg-title">출발지 ➔ 보관소</div>
+            <div class="leg-status">짐 운반 (부담 구간)</div>
+          </div>
+          <div class="leg-box light">
+            <span class="leg-tag">Leg 2</span>
+            <div class="leg-title">보관소 ➔ 방문지</div>
+            <div class="leg-status">가벼운 자유 여행</div>
+          </div>
+          <div class="leg-box light">
+            <span class="leg-tag">Leg 3</span>
+            <div class="leg-title">방문지 ➔ 보관소</div>
+            <div class="leg-status">회수를 위한 복귀</div>
+          </div>
+          <div class="leg-box heavy">
+            <span class="leg-tag">Leg 4</span>
+            <div class="leg-title">보관소 ➔ 최종 숙소</div>
+            <div class="leg-status">짐 운반 (귀가 구간)</div>
+          </div>
+        </div>
+
+        <div class="point-card highlight" style="margin-top:6px;">
+          <div class="point-header">
+            <span>핵심 판정 로직: 4개 구간 종합 분석 및 피로도 최소화</span>
+          </div>
+          <p class="point-desc">
+            • <strong>전체 동선 최적화</strong>: 출발지 인접성만 보는 대신 4개 구간의 이동 동선을 종합 분석합니다.<br>
+            • <strong>피로도 최소화</strong>: 짐을 들고 걷는 시간(Carry Time)과 회수 우회 시간(Detour)을 최소화합니다.<br>
+            • <strong>이동 효율 극대화</strong>: 여행자가 짐 없이 가볍게 이동할 수 있는 자유 시간을 최대로 확보합니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 05: 철도 일정과 보관소 정보를 함께 봅니다 -->
+    <div class="slide" data-slide="5" data-title="철도 일정과 보관소 정보를 함께 봅니다">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">데이터 & 알고리즘</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">철도 일정과 보관소 정보를 함께 봅니다</h2>
+      
+      <div class="content-grid">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="point-card">
+            <div class="point-header">
+              <span>국토부 TAGO 열차 시간표 연계</span>
+            </div>
+            <p class="point-desc">
+              30km 이상 광역 이동 시 KTX 직통 편성과<br>
+              지정한 회수 시각에 맞춘 복귀 열차를 함께 계산합니다.
+            </p>
+          </div>
+
+          <div class="point-card highlight">
+            <div class="point-header">
+              <span>14종 공공데이터 & 285개 역 검증</span>
+            </div>
+            <p class="point-desc">
+              코레일, 서울교통공사, 전국 5대 도시철도 데이터를 통합해<br>
+              285개 주요 거점 역사 대상 자동화 검증을 완료했습니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="point-card accent">
+          <div class="point-header">
+            <span>거짓 잔여석 배제 원칙</span>
+          </div>
+          <p class="point-desc">
+            • 센서 없는 보관소의 허위 실시간 잔여석 표기를 배제하여 헛걸음 방지.<br>
+            • 규격별 총 칸수, 요금표, 운영사 직통 전화번호를 투명하게 제공.<br>
+            • 만차 대비 '플랜 B 대안역' 및 심야 셔터 마감(24:00) 안내 기본 탑재.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 06: 보관함 비밀번호는 브라우저 안에 (Web Crypto) -->
+    <div class="slide" data-slide="6" data-title="보관함 비밀번호는 브라우저 안에">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">보안 아키텍처</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">보관함 비밀번호는 브라우저 안에</h2>
+      
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:18px;flex:1;">
+        <div class="point-card">
+          <div class="point-header">
+            <span style="font-size:16px;background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;">1</span>
+            <span>종단간 암호화 (서버 전송 0바이트)</span>
+          </div>
+          <p class="point-desc">
+            개인 PIN 기반 PBKDF2 10만 회 연산으로 암호화 키 유도,<br>
+            AES-256-GCM 적용으로 외부 서버 전송 없이 안전하게 보관합니다.
+          </p>
+        </div>
+
+        <div class="point-card">
+          <div class="point-header">
+            <span style="font-size:16px;background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;">2</span>
+            <span>다중 보관함 지원 & 안심 마스킹</span>
+          </div>
+          <p class="point-desc">
+            보관함 1~4개 개별 등록 지원 및 평소 비밀번호 마스킹(••••) 처리,<br>
+            필요할 때만 개인 PIN을 입력해 확인하므로 화면 노출을 방지합니다.
+          </p>
+        </div>
+
+        <div class="point-card">
+          <div class="point-header">
+            <span style="font-size:16px;background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;">3</span>
+            <span>무차별 대입 자동 차단 (Lockout)</span>
+          </div>
+          <p class="point-desc">
+            스마트폰 분실 시 무차별 번호 대입을 방어하기 위해,<br>
+            개인 PIN 5회 연속 오입력 시 30초 동안 입력을 자동 동결합니다.
+          </p>
+        </div>
+
+        <div class="point-card highlight">
+          <div class="point-header">
+            <span style="font-size:16px;background:var(--primary);color:#fff;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;">4</span>
+            <span>디지털 영구 파기 (Crypto-Shredding)</span>
+          </div>
+          <p class="point-desc">
+            짐을 찾고 '보관 종료' 시 로컬 저장소 키를 128바이트 난수로 덮어써<br>
+            디지털 영구 파기를 완결하고 처리 내역을 제공합니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 07: 서울역 → 성수 카페거리 → 강남역 (동선 시연 캡처) -->
+    <div class="slide" data-slide="7" data-title="실제 동선 추천 화면 시연">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">라이브 시연 1</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">서울역 → 성수 카페거리 → 강남역</h2>
+      
+      <div class="content-grid">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="point-card highlight">
+            <div class="point-header">
+              <span>1순위 추천: 성수역 보관소</span>
+            </div>
+            <p class="point-desc">
+              서울역으로 되돌아가는 역주행 대신 방문지인 성수역에 바로 맡겨<br>
+              짐을 들고 걷는 시간(Carry Time)을 크게 절감하도록 추천합니다.
+            </p>
+          </div>
+
+          <div class="point-card accent">
+            <div class="point-header">
+              <span>심야 주의사항 & 플랜 B 대안역</span>
+            </div>
+            <p class="point-desc">
+              • 자정(24:00) 역사 셔터 마감 전 회수하도록 심야 경고 배지 표시.<br>
+              • 만차 시 즉시 선택 가능한 대체역 및 운영사 다이렉트 통화 지원.
+            </p>
+          </div>
+        </div>
+
+        <div class="capture-frame">
+          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">실제 검색 결과 화면 (1순위 추천 및 플랜 B)</span></div>
+          <img src="screenshots/screen_02_results.png" alt="실제 검색 결과 화면" class="zoomable">
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 08: 티켓을 만들고, 확인하고, 종료합니다 (보안 시연 캡처) -->
+    <div class="slide" data-slide="8" data-title="보안 티켓 관리 화면 시연">
+      <div class="slide-header" style="margin-bottom:24px;padding-bottom:12px;">
+        <span class="slide-tag">라이브 시연 2</span>
+      </div>
+      <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">티켓을 만들고, 확인하고, 종료합니다</h2>
+      
+      <div class="content-grid">
+        <div class="capture-frame">
+          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">[입력] 보관함 2개 개수 선택 및 PIN 암호화 저장</span></div>
+          <img src="screenshots/screen_03_vault_modal.png" alt="보안 금고 다중 보관함 입력 모달" class="zoomable">
+        </div>
+
+        <div class="capture-frame">
+          <div class="capture-bar"><span class="capture-dot"></span><span class="capture-dot"></span><span class="capture-dot"></span><span style="font-size:11px;color:var(--text-muted);margin-left:4px;">[종료] 회수 완료 후 난수 소거 파기 확인 영수증</span></div>
+          <img src="screenshots/screen_05_receipt_modal.png" alt="짐 회수 완료 및 파기 영수증 모달" class="zoomable">
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 09: 짐은 환승 길목에, 여행은 가볍게 (체험형 QR 코드) -->
+    <div class="slide slide-cover" data-slide="9" data-title="짐은 환승 길목에, 여행은 가볍게.">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:10px 0;">
+        <h2 class="cover-title" style="font-size:42px;line-height:1.3;margin-bottom:24px;text-align:center;">
+          짐은 환승 길목에,<br>여행은 가볍게.
+        </h2>
+
+        <!-- QR 코드 직접 체험 카드 -->
+        <div class="qr-experience-card" style="background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1.5px solid rgba(255,255,255,0.18);border-radius:20px;padding:22px 32px;display:flex;align-items:center;gap:30px;max-width:680px;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+          <div style="background:#ffffff;padding:10px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.25);flex-shrink:0;">
+            <img src="screenshots/qr_service.png" alt="오늘의 짐 서비스 바로가기 QR 코드" style="width:150px;height:150px;display:block;border-radius:6px;" class="zoomable">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;text-align:left;">
+            <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(212,107,79,0.25);border:1px solid rgba(212,107,79,0.5);color:#ffb8a5;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;width:fit-content;">
+              📱 스마트폰 카메라로 지금 바로 체험
+            </div>
+            <div style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">
+              ‘오늘의 짐’ 웹 서비스 열기
+            </div>
+            <a href="https://oneurui-jim.vercel.app/" target="_blank" rel="noopener noreferrer" style="font-size:13.5px;color:#a3e0b8;text-decoration:none;word-break:break-all;font-weight:600;">
+              https://oneurui-jim.vercel.app/ ↗
+            </a>
+            <div style="font-size:12px;color:#c0d5c8;line-height:1.5;margin-top:2px;">
+              • 별도 앱 설치나 로그인 없이 모바일에서 즉시 실행<br>
+              • 4-Legs 동선 계산 & 브라우저 제로 지식 암호화 티켓 직접 체험
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:22px;font-size:13.5px;color:rgba(255,255,255,0.6);letter-spacing:0.3px;">
+          조미료 팀 (김유미, 조원웅)  •  경청해 주셔서 감사합니다
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 하단 컨트롤 바 -->
+  <div class="deck-controls">
+    <div class="btn-group">
+      <button class="nav-btn" id="prevBtn" title="이전 슬라이드 (← 키)">◀ 이전</button>
+      <button class="nav-btn" id="nextBtn" title="다음 슬라이드 (→ / 스페이스 키)">다음 ▶</button>
+      <span class="slide-counter" id="slideCounter">1 / 9</span>
+    </div>
+
+    <div class="btn-group">
+      <button class="nav-btn" id="notesToggleBtn" title="발표자 대본 보기 토글 (P 키)">발표자 대본 (P)</button>
+      <button class="nav-btn" id="fullscreenBtn" title="전체화면 전환 (F 키)">전체화면 (F)</button>
+    </div>
+  </div>
+
+  <!-- 하단 발표자 대본 창 -->
+  <div class="speaker-notes-panel" id="speakerNotes">
+    <div class="notes-title">
+      <span>SPEAKER NOTES — <span id="notesSlideTitle">오늘의 짐</span></span>
+      <span style="font-size:11px;cursor:pointer;" onclick="toggleNotes()">✕ 닫기 (P)</span>
+    </div>
+    <div class="notes-script" id="notesContent"></div>
+    <div class="notes-cue" id="notesCue">화면 조작 2번 슬라이드로 넘깁니다.</div>
+  </div>
+
+  <!-- 원본 이미지 확대 라이트박스 모달 -->
+  <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-label="이미지 원본 확대">
+    <div class="lightbox-backdrop" onclick="closeLightbox()" title="배경 클릭 시 닫기"></div>
+    <div class="lightbox-dialog">
+      <div class="lightbox-header">
+        <div class="lightbox-title-wrap">
+          <span>🔍</span>
+          <span id="lightboxTitle">화면 캡처 원본</span>
+          <span class="lightbox-hint">(클릭하거나 ESC 키를 누르면 닫힙니다)</span>
+        </div>
+        <button type="button" class="lightbox-close-btn" onclick="closeLightbox()">✕ 닫기 (ESC)</button>
+      </div>
+      <div class="lightbox-body" onclick="closeLightbox()" title="클릭하면 닫힙니다">
+        <img id="lightboxImg" src="" alt="화면 캡처 확대 이미지">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 각 슬라이드별 발표 대본 매핑 (검수 및 QR 체험형 최신 버전)
+    const scripts = {
+      1: {
+        text: `안녕하세요! 이번 모의 해커톤에서 '오늘의 짐' 프로젝트를 개발한 조미료 팀입니다.
+
+발표 시작하기 전에 다들 여행 가거나 이번 해커톤 오실 때 캐리어 끌고 고생해보신 적 있으시죠?
+저도 얼마 전에 지방 다녀오면서 겪었던 일인데요. 기차역 도착하자마자 아무 생각 없이 역 보관함에 캐리어를 넣어뒀습니다. 그런데 일정이 끝나고 밤에 숙소로 가려니까, 짐을 찾으러 다시 기차역까지 40분을 거꾸로 지하철 타고 가야 하더라고요. 길바닥에 시간 버리고, 차비 버리고, 다리는 아프고…
+
+왜 이런 일이 생기나 봤더니 지금 쓰는 지도 앱들은 전부 '지금 내가 서 있는 곳 주변'만 알려주기 때문입니다.
+하지만 우리 하루 일정은 출발지에서 시작해서 짐 맡기고, 놀러 갔다가, 다시 짐 찾아서 숙소로 가는 긴 동선이잖아요. 그래서 저희는 '어디에 맡겨야 하루 종일 짐 들고 걷는 시간을 제일 많이 줄일 수 있을까?'를 직접 계산해 주는 서비스를 만들었습니다.`,
+        cue: `화면 조작: 2번 슬라이드로 넘깁니다.`
+      },
+      2: {
+        text: `다들 기차 타고 여행 가던 순간을 한번 떠올려보세요. 역에 딱 내렸는데 무거운 캐리어에 배낭까지 메고 있으면, 가고 싶은 맛집이 눈앞에 있어도 몸이 먼저 지칩니다. 그래서 제일 먼저 물품보관함을 찾게 되죠.
+
+그런데 여기서 두 가지 문제가 생깁니다. 첫 번째는 동선 낭비입니다. 예를 들어 대전역에서 성심당에 들렀다가 유성온천 숙소로 가는 일정이라면, 어디에 맡겨야 짐을 덜 들고 걸을까요? 가까운 보관함만 골랐다가는 짐을 찾으러 다시 돌아가야 할 수도 있습니다.
+
+두 번째는 짐을 맡긴 뒤에 생기는 보안 문제입니다. 보관함에 짐을 넣으면 영수증이 나오거나 화면에 비밀번호가 뜹니다. 다들 잃어버리지 않으려고 어떻게 적어두시나요? 조사해 보면 열 명 중 여섯 명은 카카오톡 '나와의 채팅'이나 스마트폰 메모장에 '32번 / 비번 1024'처럼 글자 그대로 평문 저장을 합니다.
+이건 암호화가 전혀 안 된 상태입니다. 지하철이나 카페에서 화면을 켜면 뒤에 서 있는 사람이 훔쳐보는 이른바 '숄더 서핑'에 무방비로 노출됩니다. 실제로 서울교통공사에서도 비밀번호 훔쳐보기와 털이 범죄가 끊이지 않자, 전 역사 보관함 도어락을 OTP 방식으로 바꾸겠다고 발표할 정도로 현장의 도난 피해는 심각합니다.`,
+        cue: `화면 조작: 좌측 카드(동선 낭비)와 우측 카드(보안 취약)를 짚은 뒤 3번 슬라이드로 넘깁니다.`
+      },
+      3: {
+        text: `이 두 가지 문제를 함께 해결하기 위해 저희 팀이 만든 서비스가 바로 ‘오늘의 짐’입니다.
+
+화면 우측의 실제 서비스 메인 화면처럼, 출발지와 가고 싶은 방문지, 최종 숙소를 넣으면 전체 일정에 딱 맞는 보관소를 추천합니다. 그리고 짐을 맡긴 뒤 받은 비밀번호는 브라우저 안의 암호화 티켓으로 안전하게 관리합니다.
+
+보관함을 찾는 순간부터 짐을 회수하고 기록을 지우는 순간까지 모든 과정을 하나로 매끄럽게 연결한 서비스입니다.`,
+        cue: `화면 조작: 좌측 해결 포인트와 우측 웹 메인 화면 캡처를 가리킨 뒤 4번 슬라이드로 넘깁니다.`
+      },
+      4: {
+        text: `첫 번째 핵심 기능은 '캐리 타임(Carry Time)' 최소화 알고리즘입니다. 캐리 타임은 말 그대로 ‘짐을 손에 들고 걷는 시간’입니다.
+
+화면의 도식으로 설명드리면, 출발지에서 보관소까지, 보관소에서 방문지까지, 방문지에서 다시 보관소까지, 마지막으로 최종 숙소까지 네 구간으로 나누어 볼 수 있습니다.
+
+양쪽 주황색 박스는 짐을 손에 들고 이동해야 하는 부담 구간이고, 가운데 초록색 박스는 짐 없이 자유롭게 다니는 가벼운 여행 구간입니다.
+
+보관소가 출발지에서 얼마나 가까운지만 볼 게 아니라, 짐을 들고 걷는 시간과 회수 때문에 우회하는 시간까지 함께 비교해야 합니다. 이런 부담이 가장 적은 보관소를 추천하는 것이 저희 알고리즘의 핵심입니다.`,
+        cue: `화면 조작: 양쪽 주황색 부담 구간과 가운데 초록색 자유 구간을 짚은 뒤 5번 슬라이드로 넘깁니다.`
+      },
+      5: {
+        text: `장거리 여행에서는 열차 시간과 짐을 찾을 시각도 매우 중요합니다. 코레일과 서울교통공사 등을 포함한 공공데이터 14종을 정규화하고 전국 철도역 285개 역에 대한 전수 검증망을 구축했습니다.
+
+여기에 국토교통부 대중교통 운행 정보인 TAGO를 연계해 KTX 직통 시간표와, 사용자가 지정한 회수 시각에 맞춰 돌아오는 복귀 열차 시간표를 함께 조회하도록 했습니다. 보관소를 따로 찾고 열차 시간을 다시 검색하는 번거로움을 완전히 없앴습니다.
+
+또한 센서가 없는 보관소의 거짓 잔여석으로 헛걸음하지 않도록, 규격별 총 칸수와 함께 만차 시 즉시 선택 가능한 '플랜 B 대체역'과 자정 역사 셔터 마감 알림을 제공합니다.`,
+        cue: `화면 조작: 3개 카드(TAGO 연동, 14종 데이터·285개 역망, 심야 마감·플랜 B)를 순서대로 짚은 뒤 6번 슬라이드로 넘깁니다.`
+      },
+      6: {
+        text: `두 번째 핵심은 브라우저 안심 보안 금고입니다. 가장 중요한 점은 보관함 비밀번호를 외부 서버로 단 1바이트도 보내지 않고, 사용자 기기의 브라우저 안에만 암호화해 보관하는 설계라는 겁니다.
+
+첫째, 사용자가 입력한 개인 PIN으로 10만 회 해싱 연산을 거쳐 암호화 키를 만들고, AES-256 방식으로 티켓을 암호화합니다.
+둘째, 보관함은 친구 짐까지 최대 4개까지 함께 등록할 수 있고, 비밀번호는 평소에 마스킹되어 가려둡니다. 필요할 때만 개인 PIN을 입력해서 확인하므로 화면 노출을 원천 차단합니다.
+셋째, PIN을 5회 연속 틀리면 30초 동안 입력을 동결해 무차별 대입 공격을 막습니다. 
+넷째, 짐을 찾고 '보관 종료'를 누르면 메모리와 저장소의 암호화 데이터를 난수로 덮어써 영구 파기하고 완료 영수증을 발급합니다.`,
+        cue: `화면 조작: 4대 보안 원칙을 짚은 뒤 7번 슬라이드로 넘겨 실제 서비스 추천 결과 화면을 보여줍니다.`
+      },
+      7: {
+        text: `화면에 보시는 캡처가 실제 추천 알고리즘의 실행 결과입니다.
+
+출발지에 서울역, 방문지에 성수 카페거리, 최종 숙소에 강남역을 넣었을 때, 시스템은 1순위로 '성수역' 보관소를 추천했습니다.
+
+많은 여행자가 무심코 출발역인 서울역에 짐을 넣지만, 방문지이자 환승 길목인 성수역에 맡기면 하루 종일 짐을 손에 들고 걷는 '캐리 타임'을 32분이나 대폭 줄일 수 있습니다.
+
+우측 카드에서 보시는 것처럼, 자정 24시 역사 셔터 마감 전에 짐을 찾을 수 있도록 심야 주의 배지를 띄워주고, 만약 현장이 만차일 경우 바로 인근 대체역으로 연결하는 플랜 B까지 화면 안에서 함께 제공합니다.`,
+        cue: `화면 조작: 좌측 1순위 성수역 추천 결과와 우측의 심야 마감 주의 배지 및 대체역 카드를 포인터로 짚으며 설명한 뒤 8번 슬라이드로 넘깁니다.`
+      },
+      8: {
+        text: `다음은 보관함 비밀번호를 안전하게 지켜주는 보안 티켓 기능입니다. 슬라이드의 두 캡처 화면으로 설명드리겠습니다.
+
+왼쪽 화면처럼 동행인의 짐까지 함께 맡길 때는 보관함을 여러 개 선택할 수 있습니다. 사물함 번호와 비밀번호, 개인 PIN을 입력해 저장하면 즉시 브라우저 안에서 암호화 티켓이 만들어집니다. 보시는 것처럼 비밀번호는 평소 마스킹되어 주변 시선을 차단하고, 본인의 PIN을 입력해야만 확인할 수 있습니다.
+
+일정을 마치고 짐을 찾은 뒤 '회수 완료'를 누르면, 오른쪽 화면처럼 저장된 모든 데이터가 메모리와 브라우저 저장소에서 난수로 덮어씌워져 영구 소거되고 파기 영수증이 발급됩니다. 서버에 어떤 흔적도 남기지 않는 완벽한 제로 지식 보안 라이프사이클입니다.`,
+        cue: `화면 조작: 왼쪽의 [다중 보관함 PIN 입력 모달]과 오른쪽의 [회수 완료 및 파기 영수증 모달] 캡처를 차례대로 짚으며 설명한 뒤 9번 슬라이드로 넘깁니다.`
+      },
+      9: {
+        text: `여행에서 짐은 이동의 피로를 만들고, 보관함 비밀번호는 또 하나의 관리 부담이 됩니다.
+
+‘오늘의 짐’은 전체 일정에 맞는 보관소를 추천해 걸음을 가볍게 하고, 브라우저 안의 암호화 티켓으로 소중한 짐을 안전하게 지켜줍니다.
+
+지금 화면 중앙에 띄워드린 QR 코드를 스마트폰 카메라로 스캔하시면, 별도의 앱 설치나 로그인 없이 지금 바로 여러분의 폰에서 ‘오늘의 짐’ 웹 서비스를 직접 체험해보실 수 있습니다.
+
+짐은 환승 길목에 맡기고, 여행은 가볍게 즐기시길 바랍니다. 지금까지 조미료 팀의 ‘오늘의 짐’이었습니다. 경청해 주셔서 감사합니다. 질문 편하게 해주세요!`,
+        cue: `화면 조작: 화면 중앙의 QR 코드를 가리키며 청중과 심사위원이 스마트폰으로 직접 접속하도록 유도하고, 마지막 슬라이드를 유지한 채 질의응답을 진행합니다.`
+      }
+    };
+
+    let currentSlide = 1;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+
+    function showSlide(index) {
+      if (index < 1) index = 1;
+      if (index > totalSlides) index = totalSlides;
+      currentSlide = index;
+
+      slides.forEach(s => s.classList.remove('active'));
+      const activeEl = document.querySelector(`.slide[data-slide="${currentSlide}"]`);
+      if (activeEl) activeEl.classList.add('active');
+
+      document.getElementById('slideCounter').textContent = `${currentSlide} / ${totalSlides}`;
+      history.replaceState(null, '', '#' + currentSlide);
+
+      // 발표자 대본 업데이트
+      const scriptData = scripts[currentSlide] || { text: '', cue: '' };
+      document.getElementById('notesSlideTitle').textContent = activeEl.dataset.title || '';
+      document.getElementById('notesSlideTime').textContent = activeEl.dataset.time || '';
+      document.getElementById('notesContent').textContent = scriptData.text;
+      document.getElementById('notesCue').textContent = scriptData.cue;
+    }
+
+    function nextSlide() { showSlide(currentSlide + 1); }
+    function prevSlide() { showSlide(currentSlide - 1); }
+
+    function toggleNotes() {
+      document.getElementById('speakerNotes').classList.toggle('open');
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    document.getElementById('prevBtn').onclick = prevSlide;
+    document.getElementById('nextBtn').onclick = nextSlide;
+    document.getElementById('notesToggleBtn').onclick = toggleNotes;
+    document.getElementById('fullscreenBtn').onclick = toggleFullscreen;
+
+    // 라이트박스 모달 제어
+    const lightboxModal = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxTitle = document.getElementById('lightboxTitle');
+
+    function openLightbox(src, title) {
+      if (!lightboxModal || !lightboxImg) return;
+      lightboxImg.src = src;
+      if (lightboxTitle) lightboxTitle.textContent = title || '화면 캡처 원본';
+      lightboxModal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      if (!lightboxModal) return;
+      lightboxModal.classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => {
+        if (lightboxImg && !lightboxModal.classList.contains('open')) {
+          lightboxImg.src = '';
+        }
+      }, 200);
+    }
+
+    // 캡처 프레임 클릭 시 원본 이미지 확대
+    document.querySelectorAll('.capture-frame').forEach(frame => {
+      frame.addEventListener('click', () => {
+        const img = frame.querySelector('img');
+        const barSpan = frame.querySelector('.capture-bar span:last-child');
+        const title = barSpan ? barSpan.textContent.trim() : (img?.alt || '화면 캡처 원본');
+        if (img && img.src) {
+          openLightbox(img.src, title);
+        }
+      });
+    });
+
+    // 독립 zoomable 이미지 클릭 연결
+    document.querySelectorAll('img.zoomable').forEach(img => {
+      if (!img.closest('.capture-frame')) {
+        img.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openLightbox(img.src, img.alt || '화면 캡처 원본');
+        });
+      }
+    });
+
+    window.addEventListener('keydown', e => {
+      const isLightboxOpen = document.getElementById('imageLightbox')?.classList.contains('open');
+      if (isLightboxOpen) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeLightbox();
+        }
+        return; // 라이트박스가 열려 있을 때는 슬라이드 넘김 방지
+      }
+
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    });
+
+    // 초기화 및 URL 해시 지원
+    const initialSlide = parseInt(location.hash.replace('#', '')) || 1;
+    showSlide(initialSlide);
+
+    window.addEventListener('hashchange', () => {
+      const idx = parseInt(location.hash.replace('#', '')) || 1;
+      if (idx !== currentSlide) showSlide(idx);
+    });
+  </script>
+</body>
+</html>

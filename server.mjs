@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import searchHandler from './api/search.js';
@@ -102,7 +102,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // 2. 정적 파일 서빙
-    const target = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+    let target = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+    if (existsSync(target) && statSync(target).isDirectory()) {
+      target = path.join(target, 'index.html');
+    }
     if (!target.startsWith(root)) {
       res.writeHead(403);
       return res.end('Forbidden');

@@ -4,3 +4,12 @@
 .vercel/
 node_modules/
 *.zip
+fonts/
+verified_slides/
+check_noonnu.py
+*.pptx
+*.docx
+scripts/create_presentation_pptx.py
+scripts/download_fonts_and_build.py
+scripts/build_word_script.py
+scripts/capture-slides-screenshots.mjs
