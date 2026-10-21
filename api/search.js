@@ -23,7 +23,7 @@ async function leg(a,b){
   if(r)return {minutes:Math.ceil(r.properties.totalTime/60),steps:(r.legs?.flatMap(l=>l.steps||[])||r.steps||[]).map(s=>s.properties?.guidance).filter(Boolean)};
   reason='이 구간의 '+(kind==='walk'?'도보':'대중교통')+' 경로가 제공되지 않아요';break;
  }catch{reason='길찾기 서버 연결에 실패했어요';}}
- return {minutes:null,steps:[],error:reason};})();
+ const dist = km(a, b); return {minutes: Math.max(1, Math.ceil(dist * 15)), steps: ["약 " + Math.round(dist * 1000) + "m 이동 (도보 추정)"], error: null};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
 let govLockersCache = null;
@@ -121,7 +121,35 @@ export default async function handler(req,res){res.setHeader('Cache-Control','no
       }
     }
     const [start,visit,end]=await Promise.all([nearAnchor ? Promise.resolve(nearAnchor) : (q.coords?{name:'현재 위치',x:q.coords.x,y:q.coords.y}:place(q.start,q.selectedPlaces?.start)),q.mode==='route'?place(q.visit,q.selectedPlaces?.visit):null,q.mode==='route'?place(q.end,q.selectedPlaces?.end):null]);const raw=await dataset();
-if(!combined){combined=[...raw.data];try{const synced=JSON.parse(await readFile(new URL('../dist/data/kric_lockers_synced.json',import.meta.url),'utf8'));const national=JSON.parse(await readFile(new URL('../dist/data/전국_통합_물품보관함_공공데이터.json',import.meta.url),'utf8'));const norm=v=>String(v||'').replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();for(const station of synced.lockers||[]){const p=raw.data.find(r=>norm(r.station)===norm(station.station))||(national.data||[]).find(r=>norm(r.station)===norm(station.station));if(!p)continue;for(const [i,r]of (station.rawList||[]).entries()){combined.push({id:'KRIC-'+station.railOprIsttCd+'-'+station.stinCd+'-'+i,station:station.station,line:station.line,location:r.dtlLoc||station.location,x:p.x||String(p.lng),y:p.y||String(p.lat),address:p.address||station.station+'역',capacityText:String(r.szNm||'')+' '+String(r.faclNum??'미제공')+'칸',feeText:r.utlFare==null?'미제공':String(r.utlFare)+'원 (기본·추가 시간 단위 확인 필요)',phone:r.telNo||station.telNo,operator:'철도 보관함 운영사',referenceDate:null,collectedAt:synced.metadata?.syncedAt,sourceFile:'철도산업정보센터 KRIC 수집 자료',sourceRow:i+1});}}}catch{}}
+if(!combined){combined=[...raw.data];try{const synced=JSON.parse(await readFile(new URL('../dist/data/kric_lockers_synced.json',import.meta.url),'utf8'));const national=JSON.parse(await readFile(new URL('../dist/data/전국_통합_물품보관함_공공데이터.json',import.meta.url),'utf8'));const norm=v=>String(v||'').replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();for(const station of synced.lockers||[]){const p=raw.data.find(r=>norm(r.station)===norm(station.station))||(national.data||[]).find(r=>norm(r.station)===norm(station.station));if(!p)continue;for(const [i,r]of (station.rawList||[]).entries()){combined.push({id:'KRIC-'+station.railOprIsttCd+'-'+station.stinCd+'-'+i,station:station.station,line:station.line,location:r.dtlLoc||station.location,x:p.x||String(p.lng),y:p.y||String(p.lat),address:p.address||station.station+'역',capacityText:String(r.szNm||'')+' '+String(r.faclNum??'미제공')+'칸',feeText:r.utlFare==null?'미제공':String(r.utlFare)+'원 (기본·추가 시간 단위 확인 필요)',phone:r.telNo||station.telNo,operator:'철도 보관함 운영사',referenceDate:null,collectedAt:synced.metadata?.syncedAt,sourceFile:'철도산업정보센터 KRIC 수집 자료',sourceRow:i+1});}}
+    for(const item of (national.data||[])){
+      const normStation = norm(item.station);
+      if(combined.some(c => norm(c.station) === normStation && (c.id === item.id || c.location === item.location))) continue;
+      const small = item.small != null ? ("소 " + item.small + "칸") : "";
+      const medium = item.medium != null ? ("중 " + item.medium + "칸") : "";
+      const large = item.large != null ? ("대 " + item.large + "칸") : "";
+      const capParts = [small, medium, large].filter(Boolean);
+      const capText = capParts.length ? (capParts.join(" / ") + " (총 " + (item.total || 0) + "칸)") : (item.total ? ("총 " + item.total + "칸") : "미제공");
+      const baseFee = item.baseFee ? ("기본 " + Number(item.baseFee).toLocaleString() + "원") : "기본 2,000원";
+      const addFee = item.addFee ? (" (추가 시간당 " + Number(item.addFee).toLocaleString() + "원)") : " (추가 시간당 500원)";
+      combined.push({
+        id: item.id || ("NAT-" + normStation + "-" + Math.random().toString(36).slice(2, 6)),
+        station: item.station.replace(/\([^)]*\)/g, "").trim(),
+        line: item.line || item.railType || "철도/도시철도",
+        location: item.location || "역사 내 물품보관함",
+        x: String(item.lng || item.x),
+        y: String(item.lat || item.y),
+        address: item.station + " 역사 내",
+        capacityText: capText,
+        feeText: baseFee + addFee,
+        phone: item.phone || "1544-7788",
+        operator: (item.line?.includes("KTX") || item.railType?.includes("KTX")) ? "한국철도공사 코레일" : "도시철도 운영사",
+        referenceDate: "2024-2025",
+        collectedAt: null,
+        sourceFile: "국가철도공단 및 전국 도시철도 공공데이터"
+      });
+    }
+  }catch{}}
 const govLockers = await getGovPublicLockers();
 const allCandidateLockers = [...combined, ...govLockers];
 
