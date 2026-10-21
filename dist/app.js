@@ -24,7 +24,7 @@ function initCustomDropdowns() {
       input.autocomplete = 'off';
       input.value = initial === 'SAME_AS_START' ? '' : initial;
       if(select.id === 'endSelect') input.placeholder = '최종 목적지 검색 · 비우면 출발지로 돌아와요';
-      input.setAttribute('aria-label', select.id === 'startSelect' ? '출발 위치 검색' : select.id === 'visitSelect' ? '방문 장소 검색' : '최종 목적지 검색');
+      input.setAttribute('aria-label', select.id === 'startSelect' ? '출발지 검색' : select.id === 'visitSelect' ? '경유지 검색' : '최종 목적지 검색');
       input.addEventListener('input', () => select.dispatchEvent(new Event('change', {bubbles:true})));
       wrap.appendChild(input);
       attachPlaceSuggestions(input, select, wrap);
@@ -557,7 +557,8 @@ function setMode(value) {
 
   $('searchText').textContent = isRoute ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   $('modeTitle').textContent = isRoute ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
-  $('modeDescription').textContent = isRoute ? '방문과 짐 회수 동선을 함께 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
+  if($('regionGroup')) $('regionGroup').hidden = isRoute;
+  $('modeDescription').textContent = isRoute ? '출발지 → 경유지 → 최종 목적지 일정에 맞춰 짐 보관·회수 동선을 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
 }
 
 $('nearTab').onclick = () => setMode('near');
@@ -1317,11 +1318,11 @@ $('plannerForm').onsubmit = async e => {
   const pickupVal = $('pickup').value;
 
   if (!startVal) {
-    $('formError').textContent = '출발 위치를 입력하거나 선택해주세요.';
+    $('formError').textContent = '출발지를 입력하거나 선택해주세요.';
     return;
   }
   if (currentMode === 'route' && !visitVal) {
-    $('formError').textContent = '목적지를 입력하거나 선택해주세요.';
+    $('formError').textContent = '경유지(짐 없이 들를 곳)를 입력하거나 선택해주세요.';
     return;
   }
   if (new Date(pickupVal) <= new Date(depositVal)) {
@@ -1369,7 +1370,7 @@ $('plannerForm').onsubmit = async e => {
 
     $('summary').style.display = 'block';
     $('summary').innerHTML = `
-      <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} 일정</strong>
+      <strong>${esc(d.start.name)}${d.visit ? ' → ' + esc(d.visit.name) + ' 경유 → ' + esc(d.end?.name || d.start.name) : ' 주변 보관함'}</strong>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
         ${esc(d.note || '이동 편의성과 보관 가능성 상위 7개 보관함 추천 결과입니다.')}
       </div>
@@ -1377,7 +1378,7 @@ $('plannerForm').onsubmit = async e => {
 
     $('cards').innerHTML = displayResults.length
       ? displayResults.map((l, index) => {
-          const isBest = index === 0 && Number.isFinite(l[priorityVal === 'carry' ? 'carry' : 'total']);
+          const isBest = l.rank === 1;
           const agencyContact = l.contact || {
             tel: l.name.includes('부산') ? '1544-5005' : '1577-1234',
             agency: l.name.includes('부산') ? '부산교통공사' : (l.name.includes('철도') ? '코레일' : '서울교통공사')
@@ -1388,7 +1389,7 @@ $('plannerForm').onsubmit = async e => {
                 <div class="locker-badge-icon">${isBest ? '★' : (index + 1)}</div>
                 <div class="card-title">
                   <div class="card-tags">
-                    <span class="tag ${isBest ? 'recommend' : ''}">${isBest ? '추천 1위' : Number.isFinite(l.total) ? '#' + (index + 1) : '경로 확인 필요'}</span>
+                    <span class="tag ${isBest ? 'recommend' : ''}">${l.rank ? '추천 ' + l.rank + '위' : '경로 확인 필요'}</span>
                     <span class="tag">${l.location.includes('안쪽') ? '개찰구 안쪽 여부 확인' : '출입구·개찰구 확인 필요'}</span>
                     <span class="tag" style="font-family:monospace;">${esc(l.id)}</span>
                   </div>
@@ -1408,7 +1409,7 @@ $('plannerForm').onsubmit = async e => {
                 <div class="metric">
                   <small>전체 이동시간</small>
                   <strong>${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</strong>
-                  <small class="note">출발→보관→방문→회수</small>
+                  <small class="note">맡기기→경유지→회수→최종 도착</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
@@ -1422,6 +1423,8 @@ $('plannerForm').onsubmit = async e => {
                 </div>
               </div>
 
+              <p style="font-size:12px;color:var(--primary);">${esc(l.candidateReason || '')}</p>
+              ${l.facilities?.length ? '<details style="font-size:12px;margin:12px 0;"><summary>이 역 보관함 자료 ' + l.facilities.length + '건 보기 (중복 포함 가능)</summary>' + l.facilities.map(f=>'<div style="padding:8px 0;border-bottom:1px solid #eee;">'+esc(f.line||'')+' · '+esc(f.location||'위치 미제공')+'<br>설치수량: '+esc(f.capacityText||'미제공')+'<br>요금: '+esc(f.feeText||'미제공')+'<br><small>'+esc(f.source||'')+'</small></div>').join('')+'</details>' : ''}
               <div class="plan-b-card"><strong>설치수량(빈자리 아님):</strong> ${esc(l.capacityText || '미제공')}<br><small>자료 기준일: ${esc(l.referenceDate || '미제공')} · ${esc(l.source || '')} · ${l.coordinatePrecision === 'station' ? '역 대표 좌표 기준' : '시설 위치 기준'}</small></div>
               ${l.details?.length ? l.details.map(x => `
                 <div style="font-size:12px;background:var(--surface-sub);padding:10px 14px;border-radius:8px;margin:8px 0;line-height:1.6;">
@@ -1435,7 +1438,7 @@ $('plannerForm').onsubmit = async e => {
                 <div style="margin-top:8px;padding-left:12px;border-left:2px solid #cbd6c7;line-height:1.7;">
                   ${l.legs.map((leg, i) => `
                     <div style="margin:4px 0;">
-                      <strong>${['1. 출발지 → 보관함', '2. 보관함 → 목적지', '3. 목적지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
+                      <strong>${['1. 출발지 → 보관함', '2. 보관함 → 경유지', '3. 경유지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
                       ${Number.isFinite(leg?.minutes) ? formatMinutesText(leg.minutes) + ' (' + leg.steps.map(esc).join(' · ') + ')' : esc(leg?.error || '경로를 불러오지 못했어요')}
                     </div>
                   `).join('')}

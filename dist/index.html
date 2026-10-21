@@ -42,7 +42,7 @@
       <h1>짐은 잠깐,<br class="mobile-break"> 하루는 가볍게.</h1>
       <p>
         가까운 곳에 무작정 넣었다가 되찾으러 역주행하지 마세요.<br class="mobile-break">
-        <strong>목적지에 갔다가 짐을 찾으러 오는 전체 동선 손실</strong>을 계산해 가장 편한 보관함을 찾아드립니다.
+        <strong>경유지에 들렀다가 짐을 찾고 최종 목적지로 가는 전체 이동시간</strong>을 계산해 가장 편한 보관함을 찾아드립니다.
       </p>
     </div>
   </section>
@@ -57,7 +57,7 @@
 
       <div class="planner-heading">
         <h2 id="modeTitle">찾으러 갈 때까지, 편하게.</h2>
-        <p id="modeDescription">방문과 짐 회수 동선을 함께 비교해요.</p>
+        <p id="modeDescription">출발지 → 경유지 → 최종 목적지 일정에 맞춰 짐 보관·회수 동선을 비교해요.</p>
       </div>
 
       <!-- 최근 경로 칩 목록 -->
@@ -76,7 +76,7 @@
 
       <form id="plannerForm">
         <!-- 1. 보관함을 찾을 지역 (드롭다운) -->
-        <div class="form-group">
+        <div class="form-group" id="regionGroup" hidden>
           <div class="field-header">
             <label class="field-label" for="regionSelect">보관함을 찾을 지역</label>
           </div>
@@ -99,7 +99,7 @@
         <!-- 2. 출발 위치 (드롭다운) -->
         <div class="form-group">
           <div class="field-header">
-            <label class="field-label" for="startSelect">출발 위치</label>
+            <label class="field-label" for="startSelect">출발지</label>
             <button type="button" id="geoBtn" class="now-btn" title="GPS로 현재 내 위치 찾기">📍 현재 위치</button>
           </div>
           <div class="custom-select-wrap" data-placeholder="출발역 또는 장소명 직접 입력 (예: 판교역, 수원역, 건대입구)">
@@ -187,9 +187,9 @@
           <!-- 3. 목적지 (짐 맡길 곳) 드롭다운 (작은 막대기 제거 완료) -->
           <div class="form-group">
             <div class="field-header">
-              <label class="field-label" for="visitSelect">목적지 (짐 맡길 곳)</label>
+              <label class="field-label" for="visitSelect">경유지 <span style="font-weight:400;">(짐 없이 들를 곳)</span></label>
             </div>
-            <div class="custom-select-wrap" data-placeholder="목적지 또는 방문 장소 직접 입력 (예: 코엑스, 광화문, 벡스코)">
+            <div class="custom-select-wrap" data-placeholder="경유지 검색 (예: 성수, 코엑스)">
               <select id="visitSelect" class="custom-select" required>
                 <optgroup label="서울·수도권 주요 일정지">
                   <option value="성수" selected>성수역 (연무장길 카페거리)</option>
@@ -219,9 +219,9 @@
           <!-- 4. 최종 목적지 (짐을 찾고 마지막으로 갈 곳) 드롭다운 (작은 막대기 제거 완료) -->
           <div class="form-group">
             <div class="field-header">
-              <label class="field-label" for="endSelect">최종 목적지 (짐을 찾고 마지막으로 갈 곳)</label>
+              <label class="field-label" for="endSelect">최종 목적지 <span style="font-weight:400;">(짐을 찾은 뒤 갈 곳)</span></label>
             </div>
-            <div class="custom-select-wrap" data-placeholder="귀가역 또는 최종 목적지 직접 입력 (예: 인천공항, 김포공항, 수서역)">
+            <div class="custom-select-wrap" data-placeholder="최종 목적지 검색 (예: 홍대 호텔, 집, 공항)">
               <select id="endSelect" class="custom-select" required>
                 <option value="SAME_AS_START" selected>출발지와 동일 (출발역으로 복귀/귀가)</option>
                 <optgroup label="서울 주요 귀가/이동역">
@@ -347,7 +347,7 @@
 
       <div id="emptyGuide" class="empty">
         <h3>어디로 이동하시나요?</h3>
-        <p>왼쪽에서 출발 위치와 목적지를 선택하시면 전체 이동 손실을 계산해 드립니다.</p>
+        <p>출발지·경유지·최종 목적지를 입력하면 짐을 맡기고 되찾는 이동시간을 비교해 드려요.</p>
       </div>
 
       <div id="summary" class="summary" style="display:none;background:var(--surface-sub);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:12px;color:var(--text-sub);"></div>
