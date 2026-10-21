@@ -5,7 +5,7 @@
 
 본 프로젝트는 **2026 공공데이터 & 보안 융합 아이디어 해커톤** 출품작입니다.
 
-- **팀명**: 오늘의 짐 팀
+- **팀명**: 조미료
 - **팀원**: 김유미, 조원웅
 - **배포 저장소**: [https://github.com/youmjjang/oneurui-jim](https://github.com/youmjjang/oneurui-jim)
 
