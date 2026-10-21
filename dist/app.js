@@ -21,8 +21,8 @@ if (['regionSelect', 'startSelect', 'visitSelect', 'endSelect'].includes(select.
       input.id = select.id + 'Search';
       input.className = 'custom-select-inline-input station-search-input';
       if (select.id === 'regionSelect') {
-        input.placeholder = '지역 또는 역명 검색 (예: 대전, 광주, 강릉, 서울식물원)';
-        input.setAttribute('aria-label', '보관함을 찾을 지역 검색');
+        input.placeholder = '목적지 검색 (예: 대전역, 서울식물원)';
+        input.setAttribute('aria-label', '보관함을 찾을 목적지 검색');
         input.value = (initial === 'ALL' || initial === 'SEOUL') ? '' : initial;
       } else if (select.id === 'endSelect') {
         input.placeholder = '최종 목적지 검색 · 비우면 출발지로 돌아와요';
@@ -568,7 +568,7 @@ function setMode(value) {
   $('searchText').textContent = isRoute ? '최적 보관함 추천받기' : '가까운 보관함 찾기';
   $('modeTitle').textContent = isRoute ? '찾으러 갈 때까지, 편하게.' : '일단, 짐부터 내려놓을까요?';
   if($('regionGroup')) $('regionGroup').hidden = isRoute;
-  $('modeDescription').textContent = isRoute ? '출발지 → 경유지 → 최종 목적지 일정에 맞춰 짐 보관·회수 동선을 비교해요.' : '출발지에서 가까운 보관함을 비교해요.';
+  $('modeDescription').textContent = isRoute ? '출발지 → 경유지 → 최종 목적지 일정에 맞춰 짐 보관·회수 동선을 비교해요.' : '목적지 주변 보관함을 찾고, 출발지부터 이동시간을 비교해요.';
 }
 
 $('nearTab').onclick = () => setMode('near');
@@ -902,6 +902,7 @@ if ($('clearRecentBtn')) {
 // 6. 지역 드롭다운 선택 시 추천 기본역 자동 세팅
 // -------------------------------------------------------------------
 $('regionSelect').addEventListener('change', () => {
+  if ($('regionSelectSearch')) return;
   const reg = getFieldValue('regionSelect');
   if (reg === 'BUSAN') {
     setFieldValue('startSelect', '부산역');
@@ -1360,7 +1361,7 @@ $('plannerForm').onsubmit = async e => {
   };
 
   q.selectedPlaces={};
-  for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch']]){const field=$(id);if(field?.dataset.placeId)q.selectedPlaces[key]={name:field.dataset.placeName,address:field.dataset.placeAddress,x:field.dataset.placeX,y:field.dataset.placeY};}
+  for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch'],['region','regionSelectSearch']]){const field=$(id);if(field?.dataset.placeId)q.selectedPlaces[key]={name:field.dataset.placeName,address:field.dataset.placeAddress,x:field.dataset.placeX,y:field.dataset.placeY};}
   if(!getFieldValue('endSelect')||getFieldValue('endSelect')==='SAME_AS_START')q.selectedPlaces.end=q.selectedPlaces.start;
   if (currentCoords && !q.selectedPlaces.start) {
     q.coords = currentCoords;
@@ -1382,7 +1383,7 @@ $('plannerForm').onsubmit = async e => {
     $('resultsCount').textContent = displayResults.length;
 
     $('summary').style.display = 'block';
-    $('summary').innerHTML = `
+    $('summary').innerHTML = currentMode === 'near' ? '<strong>'+esc(d.start.name)+' 출발 → '+esc(d.nearDestination?.name || d.start.name)+' 주변 보관함</strong>' : `
       <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} ${d.end && d.end.name !== d.start.name ? '→ ' + esc(d.end.name) : ''} 일정</strong>
     `;
 
@@ -1417,9 +1418,9 @@ $('plannerForm').onsubmit = async e => {
 
               <div class="metrics">
                 <div class="metric">
-                  <small>전체 이동시간</small>
+                  <small>${l.estimated ? '도보 추정 포함' : '전체 이동시간'}</small>
                   <div class="metric-value">
-                    <button type="button" class="route-time-button" data-route="${esc(JSON.stringify({name:l.name,total:l.total,legs:l.legs||[]}))}" aria-label="전체 이동시간 상세 구간 보기">${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</button>
+                    <button type="button" class="route-time-button" data-route="${esc(JSON.stringify({name:l.name,total:l.total,mode:currentMode,legs:l.legs||[]}))}" aria-label="전체 이동시간 상세 구간 보기">${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</button>
                   </div>
                   <small class="note capacity-hint">이동 구간 보기 ›</small>
                 </div>
@@ -1527,7 +1528,7 @@ function attachPlaceSuggestions(input, select, wrap) {
   document.addEventListener('click',e=>{if(!wrap.contains(e.target))close();});
 }
 function capacityParts(text){
- const parts=[];const re=/(특대형|특대|대형|중형|소형|대|중|소)\s*[:：]?\s*(\d[\d,]*)\s*(?:개|칸)?/g;
+ const parts=[];const re=/(특대형|특대|대형|중형|소형|기타|대|중|소)\s*[:：]?\s*(\d[\d,]*)\s*(?:개|칸)?/g;
  for(const m of String(text||'').matchAll(re))parts.push({size:m[1].replace('형',''),count:Number(m[2].replaceAll(',',''))});
  return parts;
 }
@@ -1546,7 +1547,10 @@ document.addEventListener('click',e=>{
  const button=e.target.closest('.route-time-button');if(!button)return;
  const route=JSON.parse(button.dataset.route);let dialog=document.getElementById('routeTimeDialog');
  if(!dialog){dialog=document.createElement('dialog');dialog.id='routeTimeDialog';dialog.setAttribute('aria-label','상세 이동 구간');document.body.append(dialog);dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});}
- const labels=['출발지 → 보관함','보관함 → 경유지','경유지 → 보관함 회수','보관함 → 최종 목적지'];
+ const labels=route.mode==='near'?['출발지 → 보관함에 맡기기','보관함 → 목적지 (짐 없이 이동)']:['출발지 → 보관함','보관함 → 경유지','경유지 → 보관함 회수','보관함 → 최종 목적지'];
  dialog.innerHTML='<div class="dialog-scroll-wrap"><div class="dialog-heading"><h2 style="font-size:18px;margin:0;">🚶 상세 이동 구간</h2><button type="button" class="close-btn" aria-label="닫기">×</button></div><p class="capacity-location">'+esc(route.name)+'</p><div class="capacity-total">전체 이동시간 <strong>'+formatMinutesText(route.total)+'</strong></div><div class="route-segments">'+route.legs.map((leg,i)=>'<section class="route-segment"><div><span class="route-step-number">'+(i+1)+'</span><strong>'+labels[i]+'</strong></div><b>'+ (Number.isFinite(leg?.minutes)?formatMinutesText(leg.minutes):'조회 실패')+'</b><p>'+ (Number.isFinite(leg?.minutes)?(leg.steps||[]).map(esc).join(' · '):esc(leg?.error||'경로를 불러오지 못했어요'))+'</p></section>').join('')+'</div><p class="capacity-footnote">조회 시점의 경로 기준이며, 역 안에서 실제 보관함까지 이동하는 시간은 다를 수 있어요.</p></div>';
  dialog.querySelector('.close-btn').onclick=()=>dialog.close();dialog.showModal();
 });
+
+// Departure first, then the destination used to select nearby lockers.
+{const group=$('startSelect')?.closest('.form-group'),target=$('regionGroup');if(group&&target)group.after(target);}

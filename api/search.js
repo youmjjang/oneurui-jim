@@ -23,7 +23,7 @@ async function leg(a,b){
   if(r)return {minutes:Math.ceil(r.properties.totalTime/60),steps:(r.legs?.flatMap(l=>l.steps||[])||r.steps||[]).map(s=>s.properties?.guidance).filter(Boolean)};
   reason='이 구간의 '+(kind==='walk'?'도보':'대중교통')+' 경로가 제공되지 않아요';break;
  }catch{reason='길찾기 서버 연결에 실패했어요';}}
- const dist = km(a, b); return {minutes: Math.max(1, Math.ceil(dist * 15)), steps: ["약 " + Math.round(dist * 1000) + "m 이동 (도보 추정)"], error: null};})();
+ return {minutes:null,steps:[],error:reason};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
 let govLockersCache = null;
@@ -120,8 +120,8 @@ export default async function handler(req,res){res.setHeader('Cache-Control','no
         try { nearAnchor = await place(q.region); } catch {}
       }
     }
-    const [start,visit,end]=await Promise.all([nearAnchor ? Promise.resolve(nearAnchor) : (q.coords?{name:'현재 위치',x:q.coords.x,y:q.coords.y}:place(q.start,q.selectedPlaces?.start)),q.mode==='route'?place(q.visit,q.selectedPlaces?.visit):null,q.mode==='route'?place(q.end,q.selectedPlaces?.end):null]);const raw=await dataset();
-if(!combined){combined=[...raw.data];try{const synced=JSON.parse(await readFile(new URL('../dist/data/kric_lockers_synced.json',import.meta.url),'utf8'));const national=JSON.parse(await readFile(new URL('../dist/data/전국_통합_물품보관함_공공데이터.json',import.meta.url),'utf8'));const norm=v=>String(v||'').replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();for(const station of synced.lockers||[]){const p=raw.data.find(r=>norm(r.station)===norm(station.station))||(national.data||[]).find(r=>norm(r.station)===norm(station.station));if(!p)continue;for(const [i,r]of (station.rawList||[]).entries()){combined.push({id:'KRIC-'+station.railOprIsttCd+'-'+station.stinCd+'-'+i,station:station.station,line:station.line,location:r.dtlLoc||station.location,x:p.x||String(p.lng),y:p.y||String(p.lat),address:p.address||station.station+'역',capacityText:String(r.szNm||'')+' '+String(r.faclNum??'미제공')+'칸',feeText:r.utlFare==null?'미제공':String(r.utlFare)+'원 (기본·추가 시간 단위 확인 필요)',phone:r.telNo||station.telNo,operator:'철도 보관함 운영사',referenceDate:null,collectedAt:synced.metadata?.syncedAt,sourceFile:'철도산업정보센터 KRIC 수집 자료',sourceRow:i+1});}}
+    const [start,visit,end]=await Promise.all([q.coords?{name:'현재 위치',x:q.coords.x,y:q.coords.y}:place(q.start,q.selectedPlaces?.start),q.mode==='route'?place(q.visit,q.selectedPlaces?.visit):null,q.mode==='route'?place(q.end,q.selectedPlaces?.end):null]);const raw=await dataset();
+if(!combined){combined=[...raw.data];for(const region of ["daejeon","incheon","daegu","busan","gwangju"]){const imported=JSON.parse(await readFile(new URL('../dist/data/'+region+'-lockers.json',import.meta.url),'utf8'));combined.unshift(...imported.data);}try{const synced=JSON.parse(await readFile(new URL('../dist/data/kric_lockers_synced.json',import.meta.url),'utf8'));const national=JSON.parse(await readFile(new URL('../dist/data/전국_통합_물품보관함_공공데이터.json',import.meta.url),'utf8'));const norm=v=>String(v||'').replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();for(const station of synced.lockers||[]){const p=raw.data.find(r=>norm(r.station)===norm(station.station))||(national.data||[]).find(r=>norm(r.station)===norm(station.station));if(!p)continue;for(const [i,r]of (station.rawList||[]).entries()){combined.push({id:'KRIC-'+station.railOprIsttCd+'-'+station.stinCd+'-'+i,station:station.station,line:station.line,location:r.dtlLoc||station.location,x:p.x||String(p.lng),y:p.y||String(p.lat),address:p.address||station.station+'역',capacityText:String(r.szNm||'')+' '+String(r.faclNum??'미제공')+'칸',feeText:r.utlFare==null?'미제공':String(r.utlFare)+'원 (기본·추가 시간 단위 확인 필요)',phone:r.telNo||station.telNo,operator:'철도 보관함 운영사',referenceDate:null,collectedAt:synced.metadata?.syncedAt,sourceFile:'철도산업정보센터 KRIC 수집 자료',sourceRow:i+1});}}
     for(const item of (national.data||[])){
       const normStation = norm(item.station);
       if(combined.some(c => norm(c.station) === normStation && (c.id === item.id || c.location === item.location))) continue;
@@ -160,7 +160,7 @@ for(const r of allCandidateLockers.filter(r=>r.x&&r.y)){
  if(!groups.has(key))groups.set(key,{...r,facilities:[]});
  groups.get(key).facilities.push(r);
 }
-const pool=[...groups.values()].map(r=>({...r,distance:km(start,r)}));
+const pool=[...groups.values()].map(r=>({...r,distance:km(start,r),targetDistance:km(nearAnchor||start,r)}));
 let candidates;
 if(q.mode==='route'){
  const chosen=new Map();
@@ -170,13 +170,13 @@ if(q.mode==='route'){
  const corridor=r=>Math.min(km(start,r)+km(r,visit)-km(start,visit),km(visit,r)+km(r,end)-km(visit,end));
  add(pool.filter(r=>corridor(r)<=5&&Math.min(km(start,r),km(visit,r),km(end,r))<=30).sort((a,b)=>corridor(a)-corridor(b)),4);
  candidates=[...chosen.values()];
-}else candidates=pool.filter(r=>r.distance<=30).sort((a,b)=>a.distance-b.distance).slice(0,7);
+}else candidates=pool.filter(r=>r.targetDistance<=30).sort((a,b)=>a.targetDistance-b.targetDistance).slice(0,7);
 let live=[];
 if(!candidates.length){
   try{let d=null;let status=200;const capture={setHeader(){},status(n){status=n;return this;},json(value){d=value;return this;}};await legacySearch({...req,body:{...q,region:'ALL'}},capture);if(status===200&&d)live=(d.results||[]).filter(l=>/^\d{14}$/.test(l.asOf||'' )).map(l=>({...l,source:'행정안전부 한국지역정보개발원 API',capacityText:'미제공',referenceDate:l.asOf,inventoryKind:'live',coordinatePrecision:'facility'}));}catch{}
   if(!live.length){
     try{
-      const anchor=start||visit||end;
+      const anchor=nearAnchor||start||visit||end;
       const kwd=await kakao('v2/local/search/keyword.json',{query:anchor.name+' 물품보관함',x:anchor.x,y:anchor.y,radius:'20000',size:'5'});
       for(const doc of (kwd.documents||[])){
         const dist=km(anchor,{x:doc.x,y:doc.y});
@@ -202,10 +202,10 @@ if(!candidates.length){
     }catch{}
   }
 }
-const rows=await Promise.all(candidates.map(async l=>{const legs=await Promise.all((q.mode==='route'?[[start,l],[l,visit],[visit,l],[l,end]]:[[start,l]]).map(([a,b])=>leg(a,b)));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
+const rows=await Promise.all(candidates.map(async l=>{const legs=await Promise.all((q.mode==='route'?[[start,l],[l,visit],[visit,l],[l,end]]:(nearAnchor?[[start,l],[l,nearAnchor]]:[[start,l]])).map(([a,b])=>leg(a,b)));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,targetDistance:l.targetDistance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
 const primary=q.priority==='carry'?'carry':'total';const secondary=primary==='carry'?'total':'carry';
 const all=[...rows,...live];const valid=all.filter(r=>Number.isFinite(r.total)&&Number.isFinite(r.carry));
-valid.sort((a,b)=>q.mode==='near'?a.km-b.km:a[primary]-b[primary]||a[secondary]-b[secondary]||a.km-b.km);
+valid.sort((a,b)=>a[primary]-b[primary]||a[secondary]-b[secondary]||a.km-b.km);
 const results=valid.slice(0,7).map((r,i)=>({...r,rank:i+1}));
 const unranked=all.filter(r=>!Number.isFinite(r.total)||!Number.isFinite(r.carry));
-res.status(200).json({start,visit,end,results:[...results,...unranked.slice(0,3)],comparedStations:candidates.length,source:raw.metadata.source,note:(q.mode==='route'?'출발지·경유지·최종 목적지 주변과 두 이동 구간 사이에서 '+candidates.length+'개 역 후보 비교 · '+(primary==='carry'?'짐 들고 이동시간':'전체 이동시간')+' 짧은 순 (동점 시 '+(secondary==='carry'?'짐 들고 이동시간':'전체 이동시간')+')':'출발지에서 가까운 역 순')+' · 같은 역의 보관함은 묶어서 표시합니다. 전체 보관함의 최적해를 보장하지 않으며 좌표는 역 대표 위치입니다. 시간은 조회 시점 기준이고 빈자리·운영시간·수납 가능 여부는 현장 확인이 필요해요.'});}catch(e){res.status(502).json({error:e.message||'조회에 실패했어요.'});}}
+res.status(200).json({start,visit,end,nearDestination:nearAnchor,results:[...results,...unranked.slice(0,3)],comparedStations:candidates.length,source:raw.metadata.source,note:(q.mode==='route'?'출발지·경유지·최종 목적지 주변과 두 이동 구간 사이에서 '+candidates.length+'개 역 후보 비교 · '+(primary==='carry'?'짐 들고 이동시간':'전체 이동시간')+' 짧은 순 (동점 시 '+(secondary==='carry'?'짐 들고 이동시간':'전체 이동시간')+')':'출발지에서 가까운 역 순')+' · 같은 역의 보관함은 묶어서 표시합니다. 전체 보관함의 최적해를 보장하지 않으며 좌표는 역 대표 위치입니다. 시간은 조회 시점 기준이고 빈자리·운영시간·수납 가능 여부는 현장 확인이 필요해요.'});}catch(e){res.status(502).json({error:e.message||'조회에 실패했어요.'});}}
