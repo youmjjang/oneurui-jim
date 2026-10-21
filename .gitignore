@@ -23,3 +23,7 @@ scripts/find_transfer_hub_scenarios.mjs
 scripts/compare_scenarios.mjs
 scripts/test_pick_best.mjs
 scripts/test_thehyundai_ui.mjs
+scripts/find_dramatic_scenarios.mjs
+scripts/test_quick.mjs
+scripts/test_compare_candidates.mjs
+scripts/test_ikseon_details.mjs
