@@ -1,3 +1,4 @@
+import {makeJourney,inputTime} from '../lib/train-routing.js';
 import legacySearch from '../lib/legacy-search.js';
 import {readFile} from 'node:fs/promises';
 let cache;let combined;
@@ -23,9 +24,10 @@ async function leg(a,b){
   if(r)return {minutes:Math.ceil(r.properties.totalTime/60),steps:(r.legs?.flatMap(l=>l.steps||[])||r.steps||[]).map(s=>s.properties?.guidance).filter(Boolean)};
   reason='이 구간의 '+(kind==='walk'?'도보':'대중교통')+' 경로가 제공되지 않아요';break;
  }catch{reason='길찾기 서버 연결에 실패했어요';}}
- const dist = km(a, b); return {minutes: Math.max(1, Math.ceil(dist * 15)), steps: ["약 " + Math.round(dist * 1000) + "m 이동 (도보 추정)"], error: null};})();
+ return {minutes:null,steps:[],error:reason};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
+const journey=makeJourney(leg,km);
 let govLockersCache = null;
 let govLockersLastFetch = 0;
 
@@ -202,7 +204,16 @@ if(!candidates.length){
     }catch{}
   }
 }
-const rows=await Promise.all(candidates.map(async l=>{const legs=await Promise.all((q.mode==='route'?[[start,l],[l,visit],[visit,l],[l,end]]:(nearAnchor?[[start,l],[l,nearAnchor]]:[[start,l]])).map(([a,b])=>leg(a,b)));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,targetDistance:l.targetDistance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
+const rows=await Promise.all(candidates.map(async l=>{const when=inputTime(q.deposit),pickup=inputTime(q.pickup),departure=Number.isFinite(when)?when:Date.now();const legs=[];
+legs.push(await journey(start,l,departure));
+if(q.mode==='route'){
+ legs.push(await journey(l,visit,departure+(legs[0]?.minutes||0)*60000));
+ const back=await leg(visit,l);
+ const returnAt=Number.isFinite(pickup)?pickup-(back?.minutes||0)*60000:departure+((legs[0]?.minutes||0)+(legs[1]?.minutes||0))*60000;
+ legs.push(await journey(visit,l,returnAt));
+ const recoveredAt=returnAt+(legs[2]?.minutes||0)*60000;
+ legs.push(await journey(l,end,Number.isFinite(pickup)?Math.max(pickup,recoveredAt):recoveredAt));
+}else if(nearAnchor)legs.push(await journey(l,nearAnchor,departure+(legs[0]?.minutes||0)*60000));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,targetDistance:l.targetDistance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
 const primary=q.priority==='carry'?'carry':'total';const secondary=primary==='carry'?'total':'carry';
 const all=[...rows,...live];const valid=all.filter(r=>Number.isFinite(r.total)&&Number.isFinite(r.carry));
 valid.sort((a,b)=>a[primary]-b[primary]||a[secondary]-b[secondary]||a.km-b.km);
