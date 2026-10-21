@@ -1460,7 +1460,22 @@ $('plannerForm').onsubmit = async e => {
             </article>
           `;
         }).join('')
-      : '<div class="empty"><h3>조회된 보관함이 없습니다.</h3></div>';
+      : `
+        <div class="empty" style="padding:40px 20px;text-align:center;background:var(--surface);border:1px dashed var(--border);border-radius:20px;margin-top:16px;">
+          <div style="font-size:38px;margin-bottom:12px;">🧳</div>
+          <h3 style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text-main);">주변 반경 내 보관함을 찾지 못했어요</h3>
+          <p style="font-size:13.5px;color:var(--text-sub);line-height:1.6;margin-bottom:18px;max-width:380px;margin-inline:auto;">
+            공식 철도 및 지자체 공영 보관함이 없는 지역일 수 있어요.<br>
+            근처 주요 KTX/기차역이나 지하철역 이름으로 다시 검색해보세요!
+          </p>
+          <a href="https://map.kakao.com/link/search/${encodeURIComponent((d.start?.name || '') + ' 물품보관함')}" 
+             target="_blank" rel="noopener noreferrer" 
+             style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--surface-muted);border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;color:var(--text-main);text-decoration:none;transition:all 0.15s ease;">
+            <span>📍 카카오맵에서 '${esc(d.start?.name || '현재 위치')}' 주변 보관함 검색</span>
+            <span>↗</span>
+          </a>
+        </div>
+      `;
 
     // 결과 렌더링 후 추천 보관함 영역으로 부드럽게 자동 스크롤
     setTimeout(() => {
