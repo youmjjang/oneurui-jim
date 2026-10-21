@@ -7,6 +7,14 @@ import searchHandler from './api/search.js';
 import regionHandler from './api/region.js';
 import healthHandler from './api/health.js';
 import placesHandler from './api/places.js';
+// 예기치 않은 오류로 인한 서버 중단 방지
+process.on('uncaughtException', err => {
+  console.error('[서버 예외 방어]', err);
+});
+process.on('unhandledRejection', reason => {
+  console.error('[서버 거부 방어]', reason);
+});
+
 
 // .env 자동 로드 (외부 패키지 없이 순수 Node.js로 안전 주입)
 if (existsSync('.env')) {
@@ -104,7 +112,9 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(target).toLowerCase();
     res.writeHead(200, {
       'Content-Type': mime[ext] || 'application/octet-stream',
-      'Cache-Control': 'no-store'
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     });
     res.end(data);
   } catch (err) {
