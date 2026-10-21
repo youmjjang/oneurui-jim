@@ -13,3 +13,5 @@ scripts/create_presentation_pptx.py
 scripts/download_fonts_and_build.py
 scripts/build_word_script.py
 scripts/capture-slides-screenshots.mjs
+scripts/capture_full_deck_screens.mjs
+scripts/test_gangnam.mjs
