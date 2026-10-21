@@ -1345,7 +1345,10 @@ $('plannerForm').onsubmit = async e => {
     pickup: pickupVal
   };
 
-  if (currentCoords) {
+  q.selectedPlaces={};
+  for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch']]){const field=$(id);if(field?.dataset.placeId)q.selectedPlaces[key]={name:field.dataset.placeName,address:field.dataset.placeAddress,x:field.dataset.placeX,y:field.dataset.placeY};}
+  if(!getFieldValue('endSelect')||getFieldValue('endSelect')==='SAME_AS_START')q.selectedPlaces.end=q.selectedPlaces.start;
+  if (currentCoords && !q.selectedPlaces.start) {
     q.coords = currentCoords;
   }
 
