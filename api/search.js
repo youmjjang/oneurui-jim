@@ -23,7 +23,7 @@ async function leg(a,b){
   if(r)return {minutes:Math.ceil(r.properties.totalTime/60),steps:(r.legs?.flatMap(l=>l.steps||[])||r.steps||[]).map(s=>s.properties?.guidance).filter(Boolean)};
   reason='이 구간의 '+(kind==='walk'?'도보':'대중교통')+' 경로가 제공되지 않아요';break;
  }catch{reason='길찾기 서버 연결에 실패했어요';}}
- return {minutes:null,steps:[],error:reason};})();
+ const dist = km(a, b); return {minutes: Math.max(1, Math.ceil(dist * 15)), steps: ["약 " + Math.round(dist * 1000) + "m 이동 (도보 추정)"], error: null};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
 let govLockersCache = null;
