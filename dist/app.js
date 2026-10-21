@@ -1377,7 +1377,7 @@ $('plannerForm').onsubmit = async e => {
 
     $('cards').innerHTML = displayResults.length
       ? displayResults.map((l, index) => {
-          const isBest = index === 0;
+          const isBest = index === 0 && Number.isFinite(l[priorityVal === 'carry' ? 'carry' : 'total']);
           const agencyContact = l.contact || {
             tel: l.name.includes('부산') ? '1544-5005' : '1577-1234',
             agency: l.name.includes('부산') ? '부산교통공사' : (l.name.includes('철도') ? '코레일' : '서울교통공사')
@@ -1388,7 +1388,7 @@ $('plannerForm').onsubmit = async e => {
                 <div class="locker-badge-icon">${isBest ? '★' : (index + 1)}</div>
                 <div class="card-title">
                   <div class="card-tags">
-                    <span class="tag ${isBest ? 'recommend' : ''}">${isBest ? '추천 1위' : '#' + (index + 1)}</span>
+                    <span class="tag ${isBest ? 'recommend' : ''}">${isBest ? '추천 1위' : Number.isFinite(l.total) ? '#' + (index + 1) : '경로 확인 필요'}</span>
                     <span class="tag">${l.location.includes('안쪽') ? '개찰구 안쪽 여부 확인' : '출입구·개찰구 확인 필요'}</span>
                     <span class="tag" style="font-family:monospace;">${esc(l.id)}</span>
                   </div>
@@ -1436,7 +1436,7 @@ $('plannerForm').onsubmit = async e => {
                   ${l.legs.map((leg, i) => `
                     <div style="margin:4px 0;">
                       <strong>${['1. 출발지 → 보관함', '2. 보관함 → 목적지', '3. 목적지 → 보관함 회수', '4. 보관함 → 최종 목적지'][i]}:</strong>
-                      ${leg ? formatMinutesText(leg.minutes) + ' (' + leg.steps.map(esc).join(' · ') + ')' : '-'}
+                      ${Number.isFinite(leg?.minutes) ? formatMinutesText(leg.minutes) + ' (' + leg.steps.map(esc).join(' · ') + ')' : esc(leg?.error || '경로를 불러오지 못했어요')}
                     </div>
                   `).join('')}
                 </div>
