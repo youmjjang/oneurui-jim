@@ -4,7 +4,12 @@ let cache;let combined;
 async function dataset(){if(!cache)cache=JSON.parse(await readFile(new URL('../dist/data/korail-lockers.json',import.meta.url),'utf8'));return cache;}
 async function kakao(path,params){const r=await fetch('https://dapi.kakao.com/'+path+'?'+new URLSearchParams(params),{headers:{Authorization:'KakaoAK '+process.env.KAKAO_REST_API_KEY},signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('카카오 연결을 확인해주세요.');return r.json();}
 const km=(a,b)=>{const rad=n=>n*Math.PI/180;const t=Math.sin(rad(+a.y-+b.y)/2)**2+Math.cos(rad(+a.y))*Math.cos(rad(+b.y))*Math.sin(rad(+a.x-+b.x)/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(t)));};
-async function place(s,selected){if(selected&&typeof selected.name==='string'&&selected.name.length<=200&&Number.isFinite(Number(selected.x))&&Number.isFinite(Number(selected.y))&&Number(selected.x)>=124&&Number(selected.x)<=132&&Number(selected.y)>=33&&Number(selected.y)<=39)return {name:selected.name,address:String(selected.address||'').slice(0,300),x:String(selected.x),y:String(selected.y)};const d=await kakao('v2/local/search/keyword.json',{query:s,size:'1'});const p=d.documents?.[0];if(!p)throw Error('장소를 찾지 못했어요: '+s);return {name:p.place_name,x:p.x,y:p.y,address:p.road_address_name||p.address_name};}
+async function place(s,selected){if(selected&&typeof selected.name==='string'&&selected.name.length<=200&&Number.isFinite(Number(selected.x))&&Number.isFinite(Number(selected.y))&&Number(selected.x)>=124&&Number(selected.x)<=132&&Number(selected.y)>=33&&Number(selected.y)<=39)return {name:selected.name,address:String(selected.address||'').slice(0,300),x:String(selected.x),y:String(selected.y)};const text=String(s||'').trim();
+ const split=text.split(' · ');const legacy=text.match(/^(.*?)\s+((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|특별자치도|도)?\s+.+)$/);
+ const name=split.length>1?split[0]:legacy?.[1];const address=split.length>1?split.slice(1).join(' · '):legacy?.[2];
+ const d=await kakao('v2/local/search/keyword.json',{query:text,size:'5'});let p=d.documents?.[0];
+ if(!p&&name){const found=await kakao('v2/local/search/keyword.json',{query:name,size:'15'});p=found.documents?.find(p=>p.place_name===name&&(p.road_address_name===address||p.address_name===address));if(!p){const exact=found.documents?.filter(p=>p.place_name===name);if(exact?.length===1)p=exact[0];}}
+ if(!p)throw Error('장소를 찾지 못했어요. 검색 목록에서 다시 선택해주세요: '+text);return {name:p.place_name,x:p.x,y:p.y,address:p.road_address_name||p.address_name};}
 const routeRequests=new Map();
 async function leg(a,b){
  if(km(a,b)<.02)return {minutes:0,steps:['역 대표 위치와 같은 위치 · 역내 이동은 별도 확인']};

@@ -823,7 +823,7 @@ function loadRecentRoutes() {
   }
 }
 
-function saveRecentRoute(start, visit, end, mode) {
+function saveRecentRoute(start, visit, end, mode, selectedPlaces) {
   if (!start) return;
   const routes = loadRecentRoutes() || [
     { start: '서울역', visit: '성수', end: '서울역', mode: 'route' },
@@ -837,6 +837,7 @@ function saveRecentRoute(start, visit, end, mode) {
     visit: visit || '',
     end: end || start,
     mode: mode || 'route',
+    selectedPlaces: selectedPlaces || {},
     time: Date.now()
   });
 
@@ -864,7 +865,7 @@ function renderRecentChips() {
     const isNear = r.mode === 'near';
     const label = isNear ? `${esc(r.start)} (주변)` : `${esc(r.start)} → ${esc(r.visit || '목적지')} → ${esc(r.end || r.start)}`;
     return `
-      <button type="button" class="recent-chip" data-start="${esc(r.start)}" data-visit="${esc(r.visit || '')}" data-end="${esc(r.end || r.start)}" data-mode="${r.mode || 'route'}">
+      <button type="button" class="recent-chip" data-places="${esc(JSON.stringify(r.selectedPlaces || {}))}" data-start="${esc(r.start)}" data-visit="${esc(r.visit || '')}" data-end="${esc(r.end || r.start)}" data-mode="${r.mode || 'route'}">
         ${label}
       </button>
     `;
@@ -882,6 +883,8 @@ function renderRecentChips() {
         setFieldValue('visitSelect', v);
         setFieldValue('endSelect', (e === s) ? 'SAME_AS_START' : e);
       }
+      const places=JSON.parse(btn.dataset.places||'{}');
+      for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch']]){const p=places[key],f=$(id);if(p&&f){f.dataset.placeId='saved';f.dataset.placeName=p.name;f.dataset.placeAddress=p.address;f.dataset.placeX=p.x;f.dataset.placeY=p.y;}}
       setMode(m);
       $('plannerForm').requestSubmit();
     };
@@ -1360,7 +1363,7 @@ $('plannerForm').onsubmit = async e => {
     const d = await r.json();
     if (!r.ok) throw Error(d.error || '조회 실패');
 
-    saveRecentRoute(startVal, visitVal, endVal, currentMode);
+    saveRecentRoute(startVal, visitVal, endVal, currentMode, q.selectedPlaces);
 
     $('emptyGuide').style.display = 'none';
     const displayResults = (d.results || []).slice(0, 7);
