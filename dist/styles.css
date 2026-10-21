@@ -719,6 +719,7 @@ input[type="datetime-local"]:focus {
 /* Results Area */
 .results-area {
   min-width: 0;
+  scroll-margin-top: 84px;
 }
 
 .results-heading {
@@ -868,17 +869,16 @@ input[type="datetime-local"]:focus {
 }
 
 .metric strong {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.5px;
-  color: var(--text-main);
+  letter-spacing: -0.3px;
+  color: var(--primary);
 }
 
 .metric strong em {
-  font-size: 12px;
+  font-size: 17px;
   font-style: normal;
-  font-weight: 600;
-  margin-left: 2px;
+  font-weight: 800;
 }
 
 .metric small.note {
@@ -1411,23 +1411,27 @@ dialog::backdrop {
 }
 
 .dt-pill-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
 }
 
 .dt-pill {
-  padding: 8px 14px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 9px 2px;
   background: var(--surface-sub);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-family: inherit;
   font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
   transition: all 0.15s ease;
-  line-height: 1.4;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .dt-pill:hover {
@@ -1787,7 +1791,7 @@ dialog::backdrop {
  .header-vault-btn{min-width:0}.header-vault-btn span{white-space:normal}
 }
 
-.capacity-button{border:0;background:transparent;color:var(--primary);font:inherit;font-size:20px;font-weight:800;padding:4px 8px;min-height:44px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:5px}.capacity-button:focus-visible{outline:2px solid var(--primary);border-radius:6px}#capacityDialog{width:min(360px,calc(100vw - 32px));max-width:100%;box-sizing:border-box;padding:22px;border:1px solid var(--border);border-radius:18px;color:var(--text-main)}#capacityDialog::backdrop{background:#12261c66}.capacity-list>div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.capacity-button{border:0;background:transparent;color:var(--primary);font:inherit;font-size:17px;font-weight:800;padding:0;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px}.capacity-button:focus-visible{outline:2px solid var(--primary);border-radius:6px}#capacityDialog{width:min(360px,calc(100vw - 32px));max-width:100%;box-sizing:border-box;padding:22px;border:1px solid var(--border);border-radius:18px;color:var(--text-main)}#capacityDialog::backdrop{background:#12261c66}.capacity-list>div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
 
 .capacity-hint{white-space:nowrap;font-size:10px!important;letter-spacing:-.3px}
 #capacityDialog{width:min(420px,calc(100vw - 32px));padding:0!important;border-radius:24px!important;background:var(--surface)}
@@ -1804,5 +1808,141 @@ dialog::backdrop {
 .capacity-footnote{font-size:11px;color:var(--text-sub);line-height:1.7;margin:18px 0 0}
 @media(max-width:360px){#capacityDialog .capacity-content{padding:20px}.capacity-hint{font-size:9px!important}}
 
-.route-time-button{border:0;background:transparent;color:var(--primary);font:inherit;font-weight:800;font-size:18px;min-height:44px;padding:4px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:5px;white-space:nowrap}.route-time-button:focus-visible{outline:2px solid var(--primary);border-radius:6px}
+.route-time-button{border:0;background:transparent;color:var(--primary);font:inherit;font-weight:800;font-size:17px;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px;white-space:nowrap}.route-time-button:focus-visible{outline:2px solid var(--primary);border-radius:6px}
 #routeTimeDialog{width:min(460px,calc(100vw - 32px))}#routeTimeDialog .dialog-scroll-wrap{padding:24px;box-sizing:border-box}.route-segments{display:grid;gap:10px}.route-segment{padding:15px;background:var(--surface-sub);border:1px solid var(--border);border-radius:13px}.route-segment>div{display:flex;align-items:center;gap:8px;font-size:12px}.route-step-number{display:grid;place-items:center;width:24px;height:24px;flex-shrink:0;background:#dcebd9;color:var(--primary);border-radius:50%;font-weight:700}.route-segment>b{display:block;color:var(--primary);font-size:18px;margin:10px 0 6px}.route-segment>p{font-size:12px;line-height:1.7;color:var(--text-sub);margin:0;overflow-wrap:anywhere}
+
+
+/* 3열 메트릭 정렬 시스템 (균등 17px 볼드 일관성) */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+  padding: 14px 10px;
+  background: var(--surface-sub);
+  border-radius: var(--radius-md);
+  align-items: stretch;
+}
+.metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  border-right: 1px solid var(--border);
+  padding: 0 4px;
+  min-height: 82px;
+}
+.metric:last-child {
+  border-right: 0;
+}
+.metric > small:first-child {
+  display: block;
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 600;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.metric-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  width: 100%;
+}
+.metric-carry-value,
+.route-time-button,
+.capacity-button,
+.metric strong {
+  font-family: inherit !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  color: var(--primary) !important;
+  letter-spacing: -0.3px !important;
+  white-space: nowrap !important;
+  line-height: 1.2 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.route-time-button,
+.capacity-button {
+  cursor: pointer !important;
+  text-decoration: underline dotted !important;
+  text-underline-offset: 4px !important;
+}
+.route-time-button em,
+.capacity-button small,
+.metric-carry-value em,
+.metric strong em {
+  font-size: 17px !important;
+  font-style: normal !important;
+  font-weight: 800 !important;
+  margin: 0 !important;
+  color: inherit !important;
+}
+.metric .note {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+
+#facilityFeeDialog{width:min(440px,calc(100vw - 32px));padding:0!important;border-radius:24px!important;background:var(--surface);border:1px solid var(--border);color:var(--text-main)}
+#facilityFeeDialog::backdrop{background:#12261c66}
+#facilityFeeDialog .capacity-content{padding:24px;box-sizing:border-box}
+
+/* ==============================================================
+   모바일 웹앱 & PWA 터치/스크롤 반응성 최적화
+   ============================================================== */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
+body {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.header {
+  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(72px + env(safe-area-inset-top, 0px));
+}
+
+button, a, input, select, .custom-select-trigger, .tag, .dt-pill {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, .mode-switch button, .header-btn, .tag, .metric-value, .now-btn, .close-btn, .locker-badge-icon {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button:active, .header-btn:active, .ticket-action-btn:active {
+  transform: scale(0.97);
+}
+
+.dialog-scroll-wrap, .place-suggestions, .custom-dropdown-panel {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 모바일 Safari 자동확대(Auto-zoom) 방지: 16px 이상 유지 */
+@media (max-width: 768px) {
+  .custom-select-inline-input,
+  input[type="search"],
+  input[type="text"],
+  input[type="date"],
+  input[type="time"] {
+    font-size: 16px !important;
+  }
+}

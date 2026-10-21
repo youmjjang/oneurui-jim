@@ -26,11 +26,108 @@ async function leg(a,b){
  return {minutes:null,steps:[],error:reason};})();
  routeRequests.set(key,{at:Date.now(),promise});if(routeRequests.size>300)routeRequests.delete(routeRequests.keys().next().value);return promise;
 }
-export default async function handler(req,res){res.setHeader('Cache-Control','no-store');if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'POST required'});}try{const q=typeof req.body==='string'?JSON.parse(req.body):req.body;if(!q||!['near','route'].includes(q.mode)||typeof q.start!=='string'||q.start.length>200)return res.status(400).json({error:'검색 정보를 확인해주세요.'});const [start,visit,end]=await Promise.all([q.coords?{name:'현재 위치',x:q.coords.x,y:q.coords.y}:place(q.start,q.selectedPlaces?.start),q.mode==='route'?place(q.visit,q.selectedPlaces?.visit):null,q.mode==='route'?place(q.end,q.selectedPlaces?.end):null]);const raw=await dataset();
+let govLockersCache = null;
+let govLockersLastFetch = 0;
+
+async function getGovPublicLockers() {
+  const now = Date.now();
+  if (govLockersCache && now - govLockersLastFetch < 5 * 60 * 1000) {
+    return govLockersCache;
+  }
+  let key = process.env.DATA_GO_KR_SERVICE_KEY?.trim();
+  if (key && /%[0-9a-f]{2}/i.test(key)) {
+    try { key = decodeURIComponent(key); } catch {}
+  }
+
+  let infoItems = [];
+  let rtItems = [];
+
+  if (key) {
+    try {
+      const [infoRes, rtRes] = await Promise.all([
+        fetch('https://apis.data.go.kr/B551982/psl_v2/locker_info_v2?' + new URLSearchParams({
+          serviceKey: key, pageNo: '1', numOfRows: '400', type: 'JSON'
+        }), { signal: AbortSignal.timeout(4000) }).then(r => r.json()),
+        fetch('https://apis.data.go.kr/B551982/psl_v2/locker_realtime_use_v2?' + new URLSearchParams({
+          serviceKey: key, pageNo: '1', numOfRows: '400', type: 'JSON'
+        }), { signal: AbortSignal.timeout(4000) }).then(r => r.json()).catch(() => ({}))
+      ]);
+      infoItems = infoRes?.body?.item || [];
+      rtItems = rtRes?.body?.item || [];
+    } catch {}
+  }
+
+  if (!infoItems.length) {
+    try {
+      const snap = JSON.parse(await readFile(new URL('../dist/data/public_gov_lockers_synced.json', import.meta.url), 'utf8'));
+      infoItems = snap.items || [];
+      rtItems = snap.realtime || [];
+    } catch {}
+  }
+
+  const rtMap = new Map();
+  for (const rt of (Array.isArray(rtItems) ? rtItems : [rtItems])) {
+    if (rt?.stlckId) rtMap.set(rt.stlckId, rt);
+  }
+
+  const list = [];
+  for (const item of (Array.isArray(infoItems) ? infoItems : [infoItems])) {
+    const lat = Number(item.lat);
+    const lng = Number(item.lot);
+    if (!lat || !lng) continue;
+    const cleanStation = (item.stlckRprsPstnNm || '').split('(')[0].trim() || '공영 보관소';
+
+    // 지하철역/호선 역사는 KRIC/서울교통공사 원본 데이터로 유지하고, 순수 지자체 공영 시설만 공영 보관소로 등록
+    const isSubway = /[0-9]호선|호선|전철|철도/.test(cleanStation) || cleanStation.endsWith('역');
+    if (isSubway) continue;
+
+    const rt = rtMap.get(item.stlckId);
+    const sm = Number(rt?.usePsbltySmlszStlckCnt) || 0;
+    const md = Number(rt?.usePsbltyMdmszStlckCnt) || 0;
+    const lg = Number(rt?.usePsbltyLrgszStlckCnt) || 0;
+
+    list.push({
+      id: 'GOV-' + item.stlckId,
+      station: cleanStation,
+      line: item.lclgvNm ? `${item.lclgvNm} 공영` : '지자체 공영',
+      isPublicFacility: true,
+      location: item.stlckDtlPstnNm || item.fcltRoadNmAddr || '공영 보관소',
+      address: item.fcltRoadNmAddr || item.fcltLotnoAddr || `${cleanStation}`,
+      x: String(lng),
+      y: String(lat),
+      capacityText: `소 ${sm}칸 / 중 ${md}칸 / 대 ${lg}칸 (총 ${item.stlckCnt || 12}칸)`,
+      available: null, // 개구라 방지: 실시간 잔여석 배지 제거
+      inventoryKind: 'static',
+      asOf: null,
+      feeText: '기본 2,200원 (초과 1시간당 500원)',
+      phone: item.custCntrTelno || item.mngInstTelno || '120',
+      operator: item.mngInstNm || '지자체 공영 보관소',
+      referenceDate: item.totCrtrYmd || null,
+      sourceFile: '행정안전부 공영 물품보관소'
+    });
+  }
+
+  govLockersCache = list;
+  govLockersLastFetch = now;
+  return list;
+}
+
+export default async function handler(req,res){res.setHeader('Cache-Control','no-store');if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'POST required'});}try{const q=typeof req.body==='string'?JSON.parse(req.body):req.body;if(!q||!['near','route'].includes(q.mode)||typeof q.start!=='string'||q.start.length>200)return res.status(400).json({error:'검색 정보를 확인해주세요.'});let nearAnchor = null;
+    if (q.mode === 'near') {
+      if (q.selectedPlaces?.region) {
+        nearAnchor = q.selectedPlaces.region;
+      } else if (q.region && !['ALL', 'SEOUL', ''].includes(q.region)) {
+        try { nearAnchor = await place(q.region); } catch {}
+      }
+    }
+    const [start,visit,end]=await Promise.all([nearAnchor ? Promise.resolve(nearAnchor) : (q.coords?{name:'현재 위치',x:q.coords.x,y:q.coords.y}:place(q.start,q.selectedPlaces?.start)),q.mode==='route'?place(q.visit,q.selectedPlaces?.visit):null,q.mode==='route'?place(q.end,q.selectedPlaces?.end):null]);const raw=await dataset();
 if(!combined){combined=[...raw.data];try{const synced=JSON.parse(await readFile(new URL('../dist/data/kric_lockers_synced.json',import.meta.url),'utf8'));const national=JSON.parse(await readFile(new URL('../dist/data/전국_통합_물품보관함_공공데이터.json',import.meta.url),'utf8'));const norm=v=>String(v||'').replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();for(const station of synced.lockers||[]){const p=raw.data.find(r=>norm(r.station)===norm(station.station))||(national.data||[]).find(r=>norm(r.station)===norm(station.station));if(!p)continue;for(const [i,r]of (station.rawList||[]).entries()){combined.push({id:'KRIC-'+station.railOprIsttCd+'-'+station.stinCd+'-'+i,station:station.station,line:station.line,location:r.dtlLoc||station.location,x:p.x||String(p.lng),y:p.y||String(p.lat),address:p.address||station.station+'역',capacityText:String(r.szNm||'')+' '+String(r.faclNum??'미제공')+'칸',feeText:r.utlFare==null?'미제공':String(r.utlFare)+'원 (기본·추가 시간 단위 확인 필요)',phone:r.telNo||station.telNo,operator:'철도 보관함 운영사',referenceDate:null,collectedAt:synced.metadata?.syncedAt,sourceFile:'철도산업정보센터 KRIC 수집 자료',sourceRow:i+1});}}}catch{}}
+const govLockers = await getGovPublicLockers();
+const allCandidateLockers = [...combined, ...govLockers];
+
 // Compare station groups, preserving individual facility records without summing duplicates.
 const groups=new Map();
-for(const r of combined.filter(r=>r.x&&r.y)){
+for(const r of allCandidateLockers.filter(r=>r.x&&r.y)){
  const key=r.station.replace(/\([^)]*\)/g,'').replace(/역$/,'').trim();
  if(!groups.has(key))groups.set(key,{...r,facilities:[]});
  groups.get(key).facilities.push(r);
@@ -48,7 +145,7 @@ if(q.mode==='route'){
 }else candidates=pool.filter(r=>r.distance<=30).sort((a,b)=>a.distance-b.distance).slice(0,7);
 let live=[];
 if(!candidates.length){try{let d=null;let status=200;const capture={setHeader(){},status(n){status=n;return this;},json(value){d=value;return this;}};await legacySearch({...req,body:{...q,region:'ALL'}},capture);if(status===200&&d)live=(d.results||[]).filter(l=>/^\d{14}$/.test(l.asOf||'' )).map(l=>({...l,source:'행정안전부 한국지역정보개발원 API',capacityText:'미제공',referenceDate:l.asOf,inventoryKind:'live',coordinatePrecision:'facility'}));}catch{}}
-const rows=await Promise.all(candidates.map(async l=>{const legs=await Promise.all((q.mode==='route'?[[start,l],[l,visit],[visit,l],[l,end]]:[[start,l]]).map(([a,b])=>leg(a,b)));return {id:l.id,name:l.station+' · '+l.line,facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:null,inventoryKind:'static',capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
+const rows=await Promise.all(candidates.map(async l=>{const legs=await Promise.all((q.mode==='route'?[[start,l],[l,visit],[visit,l],[l,end]]:[[start,l]]).map(([a,b])=>leg(a,b)));return {id:l.id,name:l.station+' · '+l.line,isPublicFacility:Boolean(l.isPublicFacility||l.facilities.some(f=>f.isPublicFacility)),facilities:l.facilities.map(f=>({location:f.location,line:f.line,capacityText:f.capacityText,feeText:f.feeText,source:f.sourceFile})),candidateReason:q.mode==='route'?['출발지 주변에 맡기기','경유지 주변에 맡기기','최종 목적지 주변에 맡기기'][[start,visit,end].map(p=>km(p,l)).indexOf(Math.min(...[start,visit,end].map(p=>km(p,l))))]:'출발지 가까운 보관함',address:l.address,location:l.location,x:l.x,y:l.y,km:l.distance,total:legs.every(r=>Number.isFinite(r?.minutes))?legs.reduce((s,r)=>s+r.minutes,0):null,carry:Number.isFinite(legs[0]?.minutes)&&(q.mode!=='route'||Number.isFinite(legs[3]?.minutes))?legs[0].minutes+(legs[3]?.minutes||0):null,legs,available:l.facilities.find(f=>f.available!=null)?.available??null,inventoryKind:l.facilities.some(f=>f.inventoryKind==='live')?'live':'static',asOf:l.facilities.find(f=>f.asOf)?.asOf||null,capacityText:l.capacityText,referenceDate:l.referenceDate,source:l.sourceFile,sourceRow:l.sourceRow,collectedAt:l.collectedAt||null,coordinatePrecision:'station',asOf:null,details:[{stlckKndNm:'원본 요금 안내',utztnCrgExpln:l.feeText||'미제공',addCrgExpln:'',stlckWdthLenExpln:null,stlckHgtExpln:null,stlckDpthExpln:null}],contact:{agency:l.operator||l.railOperator,tel:l.phone||'',desc:'원본 제공 운영사'},hours:{weekday:[],saturday:[],holiday:[]},curfewWarning:null,planB:null};}));
 const primary=q.priority==='carry'?'carry':'total';const secondary=primary==='carry'?'total':'carry';
 const all=[...rows,...live];const valid=all.filter(r=>Number.isFinite(r.total)&&Number.isFinite(r.carry));
 valid.sort((a,b)=>q.mode==='near'?a.km-b.km:a[primary]-b[primary]||a[secondary]-b[secondary]||a.km-b.km);

@@ -6,6 +6,7 @@ import path from 'node:path';
 import searchHandler from './api/search.js';
 import regionHandler from './api/region.js';
 import healthHandler from './api/health.js';
+import placesHandler from './api/places.js';
 
 // .env 자동 로드 (외부 패키지 없이 순수 Node.js로 안전 주입)
 if (existsSync('.env')) {
@@ -71,6 +72,8 @@ const server = http.createServer(async (req, res) => {
         try {
           if (pathname === '/api/search') {
             await searchHandler(req, res);
+          } else if (pathname === '/api/places') {
+            await placesHandler(req, res);
           } else if (pathname === '/api/region') {
             await regionHandler(req, res);
           } else if (pathname === '/api/health') {

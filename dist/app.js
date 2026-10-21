@@ -10,7 +10,7 @@ function initCustomDropdowns() {
     const select = wrap.querySelector('select');
     if (!select || wrap.querySelector('.custom-dropdown-panel')) return;
 
-    if (['startSelect', 'visitSelect', 'endSelect'].includes(select.id)) {
+if (['regionSelect', 'startSelect', 'visitSelect', 'endSelect'].includes(select.id)) {
       const initial = select.value === '__DIRECT_INPUT__' ? '' : select.value;
       select.hidden = true;
       select.required = false;
@@ -20,16 +20,26 @@ function initCustomDropdowns() {
       input.type = 'search';
       input.id = select.id + 'Search';
       input.className = 'custom-select-inline-input station-search-input';
-      input.placeholder = '역 또는 장소 검색 (예: 성수역, 카페, 주소)';
+      if (select.id === 'regionSelect') {
+        input.placeholder = '지역 또는 역명 검색 (예: 대전, 광주, 강릉, 서울식물원)';
+        input.setAttribute('aria-label', '보관함을 찾을 지역 검색');
+        input.value = (initial === 'ALL' || initial === 'SEOUL') ? '' : initial;
+      } else if (select.id === 'endSelect') {
+        input.placeholder = '최종 목적지 검색 · 비우면 출발지로 돌아와요';
+        input.setAttribute('aria-label', '최종 목적지 검색');
+        input.value = initial === 'SAME_AS_START' ? '' : initial;
+      } else {
+        input.placeholder = '역 또는 장소 검색 (예: 성수역, 카페, 주소)';
+        input.setAttribute('aria-label', select.id === 'startSelect' ? '출발지 검색' : '경유지 검색');
+        input.value = initial === 'SAME_AS_START' ? '' : initial;
+      }
       input.autocomplete = 'off';
-      input.value = initial === 'SAME_AS_START' ? '' : initial;
-      if(select.id === 'endSelect') input.placeholder = '최종 목적지 검색 · 비우면 출발지로 돌아와요';
-      input.setAttribute('aria-label', select.id === 'startSelect' ? '출발지 검색' : select.id === 'visitSelect' ? '경유지 검색' : '최종 목적지 검색');
       input.addEventListener('input', () => select.dispatchEvent(new Event('change', {bubbles:true})));
       wrap.appendChild(input);
       attachPlaceSuggestions(input, select, wrap);
 
-      document.querySelector('label[for="'+select.id+'"]').htmlFor = input.id;
+      const lbl = document.querySelector('label[for="'+select.id+'"]');
+      if (lbl) lbl.htmlFor = input.id;
       return;
     }
     // 네이티브 select 은닉
@@ -285,7 +295,7 @@ const REGION_PRICES = {
   ALL: { S: 2200, M: 3300, L: 4400, label: '전국 표준' }
 };
 
-function updatePricesByRegion() {if($('regionPriceNotice'))$('regionPriceNotice').textContent='시설별 원본 요금 확인';for(const id of ['priceS','priceM','priceL'])if($(id))$(id).textContent='시설마다 다름';}
+function updatePricesByRegion() { if($('regionPriceNotice')) $('regionPriceNotice').textContent='시설별 원본 요금 안내 ℹ️'; }
 
 // -------------------------------------------------------------------
 // 3. 맞춤 포레스트 그린 날짜 & 시각 피커 시스템 (Chromium 블루 원천 제거)
@@ -522,11 +532,11 @@ $('nowTimeBtn').onclick = () => {
 function formatMinutes(min) {
   if (min === null || min === undefined) return '-';
   const m = Math.round(Number(min) || 0);
-  if (m < 60) return `${m}<em>분</em>`;
+  if (m < 60) return `${m}분`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
-  if (rem === 0) return `${h}<em>시간</em>`;
-  return `${h}<em>시간</em> ${rem}<em>분</em>`;
+  if (rem === 0) return `${h}시간`;
+  return `${h}시간 ${rem}분`;
 }
 
 function formatMinutesText(min) {
@@ -564,17 +574,7 @@ function setMode(value) {
 $('nearTab').onclick = () => setMode('near');
 $('routeTab').onclick = () => setMode('route');
 
-// 짐 크기 선택 버튼
-document.querySelectorAll('.size-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.size-btn').forEach(b => {
-      b.classList.remove('active');
-      b.removeAttribute('aria-pressed');
-    });
-    btn.classList.add('active');
-    btn.setAttribute('aria-pressed', 'true');
-  };
-});
+// 짐 크기 선택 버튼 제거됨
 
 // -------------------------------------------------------------------
 // 5. 최근 경로 (실제 검색한 경로 자동 누적 및 최대 3개 적절 제한)
@@ -884,7 +884,7 @@ function renderRecentChips() {
         setFieldValue('endSelect', (e === s) ? 'SAME_AS_START' : e);
       }
       const places=JSON.parse(btn.dataset.places||'{}');
-      for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch']]){const p=places[key],f=$(id);if(p&&f){f.dataset.placeId='saved';f.dataset.placeName=p.name;f.dataset.placeAddress=p.address;f.dataset.placeX=p.x;f.dataset.placeY=p.y;}}
+      for(const [key,id] of [['start','startSelectSearch'],['visit','visitSelectSearch'],['end','endSelectSearch'],['region','regionSelectSearch']]){const p=places[key],f=$(id);if(p&&f){f.dataset.placeId='saved';f.dataset.placeName=p.name;f.dataset.placeAddress=p.address;f.dataset.placeX=p.x;f.dataset.placeY=p.y;}}
       setMode(m);
       $('plannerForm').requestSubmit();
     };
@@ -1276,13 +1276,25 @@ if ($('openMyLockerBtn')) $('openMyLockerBtn').onclick = () => openVaultModal();
 if ($('closeVaultDialog')) $('closeVaultDialog').onclick = () => $('vaultDialog').close();
 if ($('closeReceiptDialog')) $('closeReceiptDialog').onclick = () => $('receiptDialog').close();
 if ($('receiptDoneBtn')) $('receiptDoneBtn').onclick = () => $('receiptDialog').close();
+if ($('regionPriceNotice')) $('regionPriceNotice').onclick = () => $('facilityFeeDialog').showModal();
+if ($('closeFacilityFeeBtn')) $('closeFacilityFeeBtn').onclick = () => $('facilityFeeDialog').close();
+if ($('confirmFacilityFeeBtn')) $('confirmFacilityFeeBtn').onclick = () => $('facilityFeeDialog').close();
+
+document.addEventListener('click', e => {
+  if (e.target.closest('#closeFacilityFeeBtn') || e.target.closest('#confirmFacilityFeeBtn')) {
+    const dlg = document.getElementById('facilityFeeDialog');
+    if (dlg && typeof dlg.close === 'function') {
+      dlg.close();
+    }
+  }
+});
 
 if ($('openPhoneBtn')) $('openPhoneBtn').onclick = () => $('phoneDialog').showModal();
 if ($('closePhoneDialog')) $('closePhoneDialog').onclick = () => $('phoneDialog').close();
 
 
 // 모달 바깥 어두운 배경(Backdrop) 클릭 시 닫기
-['customDatePickerDialog', 'vaultDialog', 'receiptDialog', 'phoneDialog'].forEach(id => {
+['customDatePickerDialog', 'vaultDialog', 'receiptDialog', 'phoneDialog', 'capacityDialog', 'routeTimeDialog', 'facilityFeeDialog'].forEach(id => {
   const dlg = $(id);
   if (dlg) {
     dlg.addEventListener('click', e => {
@@ -1314,7 +1326,7 @@ $('plannerForm').onsubmit = async e => {
     priorityVal = 'total';
   }
 
-  const sizeVal = document.querySelector('.size-btn.active').dataset.size;
+  const sizeVal = 'M';
   const depositVal = $('deposit').value;
   const pickupVal = $('pickup').value;
 
@@ -1371,10 +1383,7 @@ $('plannerForm').onsubmit = async e => {
 
     $('summary').style.display = 'block';
     $('summary').innerHTML = `
-      <strong>${esc(d.start.name)}${d.visit ? ' → ' + esc(d.visit.name) + ' 경유 → ' + esc(d.end?.name || d.start.name) : ' 주변 보관함'}</strong>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
-        ${esc(d.note || '이동 편의성과 보관 가능성 상위 7개 보관함 추천 결과입니다.')}
-      </div>
+      <strong>${esc(d.start.name)} 출발 → ${esc(d.visit ? d.visit.name : '목적지')} ${d.end && d.end.name !== d.start.name ? '→ ' + esc(d.end.name) : ''} 일정</strong>
     `;
 
     $('cards').innerHTML = displayResults.length
@@ -1391,8 +1400,8 @@ $('plannerForm').onsubmit = async e => {
                 <div class="card-title">
                   <div class="card-tags">
                     <span class="tag ${isBest ? 'recommend' : ''}">${l.rank ? '추천 ' + l.rank + '위' : '경로 확인 필요'}</span>
+                    ${l.isPublicFacility ? `<span class="tag" style="background:#fef3c7;color:#92400e;font-weight:700;">🏛️ 지자체 공영</span>` : ''}
                     <span class="tag">${l.location.includes('안쪽') ? '개찰구 안쪽 여부 확인' : '출입구·개찰구 확인 필요'}</span>
-                    <span class="tag" style="font-family:monospace;">${esc(l.id)}</span>
                   </div>
                   <h3>${esc(l.name)}</h3>
                   <p>${esc(l.location)}</p>
@@ -1409,27 +1418,32 @@ $('plannerForm').onsubmit = async e => {
               <div class="metrics">
                 <div class="metric">
                   <small>전체 이동시간</small>
-                  <button type="button" class="route-time-button" data-route="${esc(JSON.stringify({name:l.name,total:l.total,legs:l.legs||[]}))}" aria-label="전체 이동시간 상세 구간 보기">${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</button>
+                  <div class="metric-value">
+                    <button type="button" class="route-time-button" data-route="${esc(JSON.stringify({name:l.name,total:l.total,legs:l.legs||[]}))}" aria-label="전체 이동시간 상세 구간 보기">${l.total === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.total)}</button>
+                  </div>
                   <small class="note capacity-hint">이동 구간 보기 ›</small>
                 </div>
                 <div class="metric">
                   <small>짐 들고 이동</small>
-                  <strong style="color:var(--primary);">${l.carry === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : formatMinutes(l.carry)}</strong>
+                  <div class="metric-value">
+                    <strong class="metric-carry-value">${l.carry === 0 && l.coordinatePrecision === 'station' ? '역내 이동' : (l.carry != null ? '총 ' + formatMinutes(l.carry) : '-')}</strong>
+                  </div>
                   <small class="note">실제 짐 부담 시간</small>
                 </div>
                 <div class="metric">
                   <small>설치수량</small>
-                  <button type="button" class="capacity-button" data-capacity="${esc(l.capacityText || '미제공')}" data-location="${esc(l.location || '')}" aria-label="설치수량 및 크기별 수량 보기">${capacitySummary(l.capacityText)}</button>
+                  <div class="metric-value">
+                    <button type="button" class="capacity-button" data-capacity="${esc(l.capacityText || '미제공')}" data-location="${esc(l.location || '')}" aria-label="설치수량 및 크기별 수량 보기">${capacitySummary(l.capacityText)}</button>
+                  </div>
                   <small class="note capacity-hint">크기별 보기 ›</small>
                 </div>
               </div>
 
-              <p style="font-size:12px;color:var(--primary);">${esc(l.candidateReason || '')}</p>
-              ${l.facilities?.length ? '<details style="font-size:12px;margin:12px 0;"><summary>이 역 보관함 자료 ' + l.facilities.length + '건 보기 (중복 포함 가능)</summary>' + l.facilities.map(f=>'<div style="padding:8px 0;border-bottom:1px solid #eee;">'+esc(f.line||'')+' · '+esc(f.location||'위치 미제공')+'<br>요금: '+esc(f.feeText||'미제공')+'</div>').join('')+'</details>' : ''}
+              
+              
               ${l.details?.length ? l.details.map(x => `
                 <div style="font-size:12px;background:var(--surface-sub);padding:10px 14px;border-radius:8px;margin:8px 0;line-height:1.6;">
-                  <strong>${esc(x.stlckKndNm)}</strong> · ${esc(x.utztnCrgExpln || '기본 요금')} (${esc(x.addCrgExpln || '')})<br>
-                  <span style="color:var(--text-sub);font-size:11px;">규격: 가로 ${esc(x.stlckWdthLenExpln || '미제공')} × 높이 ${esc(x.stlckHgtExpln || '미제공')} × 깊이 ${esc(x.stlckDpthExpln || '미제공')}</span>
+                  <strong>${esc(x.stlckKndNm)}</strong> · ${esc(x.utztnCrgExpln || '기본 요금')}${x.addCrgExpln ? ` (${esc(x.addCrgExpln)})` : ''}
                 </div>
               `).join('') : ''}
 
@@ -1447,6 +1461,14 @@ $('plannerForm').onsubmit = async e => {
           `;
         }).join('')
       : '<div class="empty"><h3>조회된 보관함이 없습니다.</h3></div>';
+
+    // 결과 렌더링 후 추천 보관함 영역으로 부드럽게 자동 스크롤
+    setTimeout(() => {
+      const resultsSection = document.querySelector('.results-area');
+      if (resultsSection) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
 
   } catch (err) {
     $('formError').textContent = err.message;

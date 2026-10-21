@@ -1,0 +1,18 @@
+{
+  "name": "오늘의 짐 - 물품보관함 추천 & 안심 보관",
+  "short_name": "오늘의 짐",
+  "description": "동선 낭비 없는 최적 물품보관함 길찾기 및 안심 보관 웹앱",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8f9f6",
+  "theme_color": "#214e3b",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23214e3b'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='%23ffffff'>🧳</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
