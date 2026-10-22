@@ -1137,7 +1137,7 @@ window.openVaultModal = function(stationName, locationDesc, initialCount = 1) {
           <div>• <strong>이용 역사:</strong> ${esc(payload.stationName)}</div>
           <div>• <strong>회수 보관함:</strong> 총 ${shredCount}개 사물함 회수 완료</div>
           <div>• <strong>회수 일시:</strong> ${new Date().toLocaleString('ko-KR')}</div>
-          <div>• <strong>기기 내 보관 데이터:</strong> <span style="color:var(--primary);font-weight:700;">영구 소거 완료 (기록 없음)</span></div>
+          <div>• <strong>암호화된 보관 정보:</strong> <span style="color:var(--primary);font-weight:700;">브라우저 저장소에서 삭제 완료</span></div>
           <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #c9d4c4;font-size:10px;color:var(--text-muted);font-family:monospace;">
             SHA-256 Digest: ${digest}
           </div>
