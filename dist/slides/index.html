@@ -687,12 +687,18 @@
 
     <!-- 슬라이드 01: 표지 -->
     <div class="slide slide-cover active" data-slide="1" data-title="오늘의 짐">
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-        <h1 class="cover-title" style="font-size:68px;letter-spacing:-1.5px;margin-bottom:36px;">오늘의 짐</h1>
-        <div class="cover-meta">
-          <span>발표자: <strong>조원웅</strong></span>
-          <span>•</span>
-          <span>팀명: <strong>조미료</strong> (김유미, 조원웅)</span>
+      <div style="flex:1;display:flex;align-items:center;justify-content:space-between;max-width:1080px;margin:0 auto;width:100%;gap:48px;">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;">
+          <h1 class="cover-title" style="font-size:78px;letter-spacing:-2px;margin-bottom:28px;line-height:1.1;text-align:left;color:#ffffff;">오늘의 짐</h1>
+          <div class="cover-meta" style="background:transparent;padding:0;border-radius:0;gap:16px;font-size:17px;color:rgba(255,255,255,0.75);margin-top:0;justify-content:flex-start;">
+            <span>발표자: <strong style="color:#ffffff;">조원웅</strong></span>
+            <span style="opacity:0.4;">•</span>
+            <span>팀명: <strong style="color:#ffffff;">조미료</strong> (김유미, 조원웅)</span>
+          </div>
+        </div>
+
+        <div style="flex-shrink:0;display:flex;justify-content:center;align-items:center;">
+          <img src="screenshots/traveler_searching_transparent.png" alt="보관소를 찾아 헤매는 여행자" style="max-height:450px;width:auto;object-fit:contain;filter:drop-shadow(0 20px 45px rgba(0,0,0,0.45));display:block;">
         </div>
       </div>
     </div>
@@ -775,27 +781,8 @@
       <h2 class="slide-title" style="margin-top:18px;margin-bottom:28px;">가장 가까운 곳보다, 짐을 덜 들고 걷는 곳</h2>
       
       <div class="content-full">
-        <div class="legs-diagram">
-          <div class="leg-box heavy">
-            <span class="leg-tag">Leg 1</span>
-            <div class="leg-title">출발지 ➔ 보관소</div>
-            <div class="leg-status">짐 운반 (부담 구간)</div>
-          </div>
-          <div class="leg-box light">
-            <span class="leg-tag">Leg 2</span>
-            <div class="leg-title">보관소 ➔ 방문지</div>
-            <div class="leg-status">가벼운 자유 여행</div>
-          </div>
-          <div class="leg-box light">
-            <span class="leg-tag">Leg 3</span>
-            <div class="leg-title">방문지 ➔ 보관소</div>
-            <div class="leg-status">회수를 위한 복귀</div>
-          </div>
-          <div class="leg-box heavy">
-            <span class="leg-tag">Leg 4</span>
-            <div class="leg-title">보관소 ➔ 최종 숙소</div>
-            <div class="leg-status">짐 운반 (귀가 구간)</div>
-          </div>
+        <div class="legs-diagram-visual" style="display:flex;justify-content:center;align-items:center;margin:4px 0 10px;">
+          <img src="screenshots/legs_diagram_illust.png" alt="4-Legs 동선 이동 다이어그램" style="width:100%;max-width:880px;max-height:240px;height:auto;aspect-ratio:1024/342;object-fit:contain;display:block;">
         </div>
 
         <div class="point-card highlight" style="margin-top:6px;">
