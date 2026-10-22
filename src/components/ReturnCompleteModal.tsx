@@ -53,16 +53,16 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
         {shreddingPhase === 'shredding' ? (
-          /* 1단계: 영구 파기 애니메이션 */
+          /* 1단계: 보관 기록 삭제 진행 화면 */
           <div className="p-8 text-center space-y-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-rose-100 text-rose-600 flex items-center justify-center animate-bounce">
               <Trash2 className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-extrabold text-slate-900">
-              보안 데이터 영구 파기 중...
+              브라우저 보관 기록 삭제 중...
             </h3>
             <p className="text-xs text-slate-500">
-              브라우저 메모리 및 로컬 저장소의 비밀번호, 사물함 위치를 난수(Zero-fill)로 덮어쓰고 영구 소거하고 있습니다.
+              브라우저 로컬 저장소에 있는 암호화 보관 기록을 삭제하고 있습니다.
             </p>
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div className="bg-rose-600 h-2 rounded-full animate-pulse w-full"></div>
@@ -72,7 +72,7 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
             </p>
           </div>
         ) : (
-          /* 2단계: 파기 완료 및 보안 영수증 */
+          /* 2단계: 삭제 완료 및 확인 화면 */
           <div className="p-6 sm:p-7">
             {/* 상단 완료 뱃지 */}
             <div className="text-center mb-5">
@@ -80,10 +80,10 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
                 <CheckCircle2 className="w-7 h-7" />
               </div>
               <h3 className="text-xl font-black text-slate-900">
-                짐 회수 & 보안 파기 완료!
+                짐 회수 및 저장 기록 삭제 완료
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Zero-Log 원칙에 따라 사물함 비밀번호와 이동 기록이 영구 파기되었습니다.
+                브라우저에 저장된 암호화 보관 정보가 삭제되었습니다.
               </p>
             </div>
 
@@ -92,7 +92,7 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="font-bold text-slate-800 flex items-center gap-1.5 font-sans">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  Zero-Log 보안 폐기 증명서
+                  보관 기록 삭제 확인
                 </span>
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-sans font-bold">
                   VERIFIED
@@ -105,7 +105,7 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
                   <span className="font-bold text-slate-900">{receipt?.sessionId}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>파기 완료 시각:</span>
+                  <span>삭제 처리 시각:</span>
                   <span>{new Date(receipt?.shreddedAt || '').toLocaleString('ko-KR')}</span>
                 </div>
                 <div className="flex justify-between">
@@ -113,12 +113,12 @@ export const ReturnCompleteModal: React.FC<ReturnCompleteModalProps> = ({
                   <span className="font-sans font-medium">{receipt?.stationUsed}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>메모리 제로필 소거:</span>
-                  <span className="text-emerald-600 font-bold">SUCCESS (100% 소거)</span>
+                  <span>브라우저 저장 정보:</span>
+                  <span className="text-emerald-600 font-bold">삭제 완료</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>외부 서버 로그 잔존:</span>
-                  <span className="text-emerald-600 font-bold">0건 (Zero-Server)</span>
+                  <span>보관 정보 서버 전송:</span>
+                  <span className="text-emerald-600 font-bold">없음 (로컬 처리)</span>
                 </div>
               </div>
 
